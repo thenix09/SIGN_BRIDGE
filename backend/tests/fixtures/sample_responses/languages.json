@@ -1,0 +1,30 @@
+{
+  "languages": [
+    {
+      "code": "ASL",
+      "modes": [
+        {
+          "mode": "spell",
+          "status": "available"
+        },
+        {
+          "mode": "words",
+          "status": "available"
+        }
+      ]
+    },
+    {
+      "code": "ISL",
+      "modes": [
+        {
+          "mode": "spell",
+          "status": "unavailable"
+        },
+        {
+          "mode": "words",
+          "status": "unavailable"
+        }
+      ]
+    }
+  ]
+}

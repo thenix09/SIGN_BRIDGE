@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: signbridge
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: SIGNBRIDGE_CORS_ORIGINS
+        value: "*"
+      - key: SIGNBRIDGE_DATABASE_URL
+        value: sqlite:///./signbridge.db

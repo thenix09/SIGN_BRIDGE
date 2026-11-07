@@ -1,0 +1,9 @@
+{
+  "label": "",
+  "confidence": 0.0,
+  "state": "IDLE",
+  "confirmed_letter": null,
+  "current_word": "HEL",
+  "sentence": "",
+  "suggestions": ["HELL", "HELLO"]
+}

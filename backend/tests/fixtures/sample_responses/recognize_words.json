@@ -1,0 +1,20 @@
+{
+  "state": "COMPLETE",
+  "top_k": [
+    {
+      "label": "hello",
+      "confidence": 0.88
+    },
+    {
+      "label": "help",
+      "confidence": 0.08
+    },
+    {
+      "label": "how",
+      "confidence": 0.02
+    }
+  ],
+  "accepted_word": "hello",
+  "sentence": "hello",
+  "message": null
+}

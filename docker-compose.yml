@@ -1,0 +1,12 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - SIGNBRIDGE_DATABASE_URL=sqlite:////app/signbridge.db
+      - SIGNBRIDGE_CORS_ORIGINS=*
+    volumes:
+      - ./signbridge.db:/app/signbridge.db

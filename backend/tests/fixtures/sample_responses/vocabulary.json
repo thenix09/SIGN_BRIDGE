@@ -1,0 +1,14 @@
+{
+  "size": 30,
+  "status": "available",
+  "words": [
+    {
+      "label": "hello",
+      "category": "greetings"
+    },
+    {
+      "label": "thank you",
+      "category": "greetings"
+    }
+  ]
+}
