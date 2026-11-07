@@ -19,6 +19,7 @@ ignore = ["E501"]
 
 [tool.mypy]
 python_version = "3.11"
+files = ["backend/app"]
 mypy_path = "."
 explicit_package_bases = true
 warn_unused_configs = true

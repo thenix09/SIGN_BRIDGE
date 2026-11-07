@@ -1,12 +1,12 @@
 """Pydantic schemas for API request and response validation."""
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class HealthResponse(BaseModel):
     """Health endpoint response payload."""
 
-    model_config = {"protected_namespaces": ()}
+    model_config = ConfigDict(protected_namespaces=())
 
     status: str = Field(default="ok", description="Service status")
     model_loaded: bool = Field(
