@@ -1,0 +1,9 @@
+{
+  "label": "A",
+  "confidence": 0.95,
+  "state": "CONFIRMED",
+  "confirmed_letter": "A",
+  "current_word": "A",
+  "sentence": "A",
+  "suggestions": ["ALL", "AND", "ARE"]
+}

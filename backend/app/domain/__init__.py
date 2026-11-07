@@ -1,0 +1,1 @@
+"""SignBridge domain models."""
