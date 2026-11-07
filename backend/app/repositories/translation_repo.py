@@ -1,7 +1,7 @@
 """SQLite repository implementation for Translation domain entities."""
 
 from datetime import UTC, datetime
-from typing import cast
+from typing import Literal, cast
 
 from sqlalchemy import desc, select
 from sqlalchemy.orm import sessionmaker
@@ -32,7 +32,7 @@ class SQLiteTranslationRepository(Repository[Translation]):
 
             return Translation(
                 id=model.id,
-                direction=cast(Translation, model).direction,  # type: ignore[arg-type]
+                direction=cast(Literal["sign_to_text", "text_to_sign"], model.direction),
                 language=model.language,
                 content=model.content,
                 created_at=model.created_at,
@@ -46,7 +46,7 @@ class SQLiteTranslationRepository(Repository[Translation]):
                 return None
             return Translation(
                 id=model.id,
-                direction=cast(Translation, model).direction,  # type: ignore[arg-type]
+                direction=cast(Literal["sign_to_text", "text_to_sign"], model.direction),
                 language=model.language,
                 content=model.content,
                 created_at=model.created_at,
@@ -64,7 +64,7 @@ class SQLiteTranslationRepository(Repository[Translation]):
             return [
                 Translation(
                     id=m.id,
-                    direction=cast(Translation, m).direction,  # type: ignore[arg-type]
+                    direction=cast(Literal["sign_to_text", "text_to_sign"], m.direction),
                     language=m.language,
                     content=m.content,
                     created_at=m.created_at,
