@@ -37,9 +37,18 @@ backend/data/raw/
 backend/data/train.csv
 backend/data/selected_sequences.csv
 backend/data/selected_parquet_paths.txt
+backend/data/processed/
+backend/data/processed/*.npz
+backend/data/processed/meta.json
+*.npz
+*.pt
+*.pth
+*.onnx
+backend/models/word_model.pt
+backend/models/word_model.onnx
+
 *.db
 *.sqlite3
-
 # IDE & OS
 .idea/
 .vscode/

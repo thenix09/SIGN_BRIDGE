@@ -26,11 +26,11 @@ SignBridge is a lightweight, privacy-preserving two-way American Sign Language (
   > PopSign ASL Dataset © 2022 Georgia Institute of Technology and Google LLC. Licensed under CC BY 4.0.
 - **Redistribution Restrictions:**
   - Raw Parquet landmark sequence files from Kaggle must not be redistributed, republished, or committed to public version control.
-  - The repository enforces this via `.gitignore` (`backend/data/raw/`).
-  - Only derivative, aggregated artifacts (preprocessed compact tensors `data/word_dataset.npz`, trained model weights `models/word_model.onnx`, and representative playback medoids `models/lexicon.json`) may be distributed.
+  - The approved preprocessed tensors, manifest, and training checkpoints are also local-only and must not be committed to this repository.
+  - `.gitignore` excludes `backend/data/raw/`, `backend/data/processed/`, and model checkpoint files.
 - **Competition Rule Compliance:**
   - Used strictly for non-commercial educational and research evaluation.
-  - Selected subset: 11,316 sequences representing 30 distinct vocabulary words from 21 signers.
+  - The selected source subset contains 11,316 candidate sequences across 30 words and 21 signers. The approved processed dataset uses 200 sequences per word (6,000 total), with signer-disjoint train/validation/test splits of 4,200/900/900.
 
 ### 2.2 Spell Mode: ASL Alphabet Dataset & Team Live Recordings
 - **Primary Source:** Kaggle "ASL Alphabet" dataset (~87,000 synthetic and captured images for static hand shapes A–Z).
@@ -122,8 +122,20 @@ The 30 isolated sign words selected for the closed vocabulary satisfy the strict
 
 ## 7. Model Evaluation & Pruning Log
 
-*(To be populated following initial training and validation runs)*
+The initial 1D CNN + BiGRU checkpoint was selected using validation data only. The held-out test split was reserved for final reporting and was not used for model selection or tuning. Its recorded results are:
 
-| Iteration | Vocabulary Size | Held-out Top-1 | Held-out Top-3 | Pruned Words | Rationale |
-| :---: | :---: | :---: | :---: | :---: | :--- |
-| Baseline | 30 words | TBD | TBD | None | Initial 30-word training set |
+| Metric | Result |
+| :--- | ---: |
+| Trainable parameters | 653,982 |
+| Best epoch | 28 |
+| Best validation loss | 1.1007 |
+| Best validation accuracy | 85.78% |
+| Training-split loss at selected checkpoint (evaluation mode) | 0.8012 |
+| Held-out test loss | 1.2461 |
+| Held-out test top-1 accuracy | 80.44% |
+| Macro precision | 81.45% |
+| Macro recall | 80.44% |
+| Macro F1 | 80.23% |
+| Model-card accuracy gate (>= 75%) | Passed |
+
+`chair` is the only word below 60% per-word test accuracy (43.33%); it should be treated as a weak class despite the overall gate passing. The training-split loss above is measured in evaluation mode at the selected checkpoint; epoch-level training-loss history and elapsed training duration were not preserved in the existing artifacts. The full per-word metrics and 30 x 30 confusion matrix are saved in the local `backend/models/word_eval_metrics.json` artifact. The training script records epoch loss and duration for future runs. The held-out test set must not be used to adjust the model or vocabulary.
