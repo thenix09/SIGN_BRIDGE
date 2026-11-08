@@ -7,28 +7,29 @@ Verifies:
 4. Parity check: local backend.app.domain.sequence vs notebook standalone logic.
 """
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-import numpy as np
-import pandas as pd
-import pyarrow.parquet as pq
+import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
+import pyarrow.parquet as pq  # noqa: E402
 
 # 1. Import local domain code
-from backend.app.domain.sequence import (
-    LandmarkFrame,
-    LandmarkWindow,
+from backend.app.domain.sequence import (  # noqa: E402
     N_FEATURES,
     N_HAND,
-    N_POSE,
     POSE_INDICES,
+    LandmarkFrame,
+    LandmarkWindow,
     T,
 )
-from backend.scripts.preprocess_words import parquet_to_tensor as local_parquet_to_tensor
+from backend.scripts.preprocess_words import (  # noqa: E402
+    parquet_to_tensor as local_parquet_to_tensor,
+)
 
 
 # 2. Extract notebook's parquet_to_tensor implementation
@@ -153,12 +154,12 @@ def run_tests() -> None:
         else:
             one_counts += 1
 
-    print(f"  Analyzed 20 sequences:")
+    print("  Analyzed 20 sequences:")
     print(f"    Sequences with active right hand:               {sum(r > 0 for r in rh_counts)}/20")
     print(f"    Sequences with two-handed interaction:          {both_counts}/20")
     print(f"    Sequences with single-handed signing:           {one_counts}/20")
     print(f"    Average active hand frames (out of 32):         RH={np.mean(rh_counts):.1f}, LH={np.mean(lh_counts):.1f}")
-    print(f"    Presence flags correctly zero when hand absent: Verified (all coordinates 0.0 when flag 0.0)")
+    print("    Presence flags correctly zero when hand absent: Verified (all coordinates 0.0 when flag 0.0)")
 
     # -------------------------------------------------------------
     # Test 3: Expanded Testing Across 50 Files
@@ -171,7 +172,7 @@ def run_tests() -> None:
         assert t.shape == (32, 104), f"Shape failure on {row.path}"
         assert t.dtype == np.float32, f"Dtype failure on {row.path}"
         assert np.isfinite(t).all(), f"Finite failure on {row.path}"
-    print(f"  Successfully processed and validated 50 consecutive local files with zero errors.")
+    print("  Successfully processed and validated 50 consecutive local files with zero errors.")
 
     # -------------------------------------------------------------
     # Test 4: Parity Check (Local Script vs Notebook Pipeline)
@@ -186,7 +187,7 @@ def run_tests() -> None:
         max_abs_diffs.append(diff)
 
     max_diff = max(max_abs_diffs)
-    print(f"  Evaluated 20 sequences across both pipelines.")
+    print("  Evaluated 20 sequences across both pipelines.")
     print(f"  Maximum absolute difference: {max_diff:.10e}")
     assert max_diff == 0.0, f"Parity mismatch between local script and notebook pipeline: {max_diff}"
     print("  Bit-for-bit parity confirmed: Max difference is exactly 0.0!")

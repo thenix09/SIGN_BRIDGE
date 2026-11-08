@@ -33,11 +33,11 @@ SignBridge is a lightweight, privacy-preserving two-way American Sign Language (
   - The selected source subset contains 11,316 candidate sequences across 30 words and 21 signers. The approved processed dataset uses 200 sequences per word (6,000 total), with signer-disjoint train/validation/test splits of 4,200/900/900.
 
 ### 2.2 Spell Mode: ASL Alphabet Dataset & Team Live Recordings
-- **Primary Source:** Kaggle "ASL Alphabet" dataset (~87,000 synthetic and captured images for static hand shapes A–Z).
+- **Primary Source:** Kaggle [ASL Alphabet](https://www.kaggle.com/datasets/grassknoted/asl-alphabet), approximately 87,000 200x200 images in A-Z, `del`, `nothing`, and `space` classes. The letter classifier uses A-Z only; the other labels are excluded.
+- **Dataset Listing Licence:** GPL-2, as specified by the Kaggle dataset listing. This is separate from the word dataset's CC BY 4.0 licence above; do not apply the word-corpus attribution or licence to alphabet images.
 - **Access Date:** November 7, 2026.
-- **Domain Adaptation / Team Recordings:**
-  - 50 live samples per letter recorded per team member using `collect.html` (Day 3 joint recording session).
-  - Used as an uncorrupted live hold-out set to bridge the synthetic-to-webcam domain gap.
+- **Data handling:** Raw images and derived feature CSVs are local-only and must not be committed. The static-pose classifier does not make J/Z movement recognition reliable.
+- **Domain Adaptation / Team Recordings:** The specification calls for 50 live samples per letter from each of three team members. These recordings are intended for person-level holdout evaluation and subsequent training; do not report them as collected or evaluated until results are available.
 
 ---
 

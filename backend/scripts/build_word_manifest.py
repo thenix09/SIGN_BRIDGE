@@ -21,7 +21,7 @@ Specifications:
 
 import argparse
 from pathlib import Path
-import numpy as np
+
 import pandas as pd
 import pyarrow.parquet as pq
 
@@ -240,7 +240,7 @@ def validate_manifest(manifest_csv: Path, on_disk_paths: set[str]) -> None:
     val_signers = set(df[df["split"] == "val"]["participant_id"].unique())
     test_signers = set(df[df["split"] == "test"]["participant_id"].unique())
 
-    print(f"4. Signer separation check:")
+    print("4. Signer separation check:")
     print(f"   Train signers ({len(train_signers)}): {sorted(train_signers)}")
     print(f"   Val signers   ({len(val_signers)}): {sorted(val_signers)}")
     print(f"   Test signers  ({len(test_signers)}): {sorted(test_signers)}")

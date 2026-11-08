@@ -12,9 +12,9 @@ from __future__ import annotations
 import argparse
 import datetime
 import json
-from pathlib import Path
 import sys
 import time
+from pathlib import Path
 from typing import Any
 
 # Ensure project root is on sys.path for direct script execution
@@ -22,18 +22,17 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-import numpy as np
-import pandas as pd
-import pyarrow.parquet as pq
+import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
+import pyarrow.parquet as pq  # noqa: E402
 
-from backend.app.core.exceptions import InvalidLandmarkError
-from backend.app.domain.sequence import (
-    LandmarkFrame,
-    LandmarkWindow,
+from backend.app.domain.sequence import (  # noqa: E402
     N_FEATURES,
     N_HAND,
     N_POSE,
     POSE_INDICES,
+    LandmarkFrame,
+    LandmarkWindow,
     T,
 )
 
@@ -175,7 +174,7 @@ def parquet_to_tensor(file_path: Path | str) -> np.ndarray:
 
 def load_vocabulary(vocab_path: Path) -> tuple[list[str], dict[str, int], dict[int, str]]:
     """Load the 30 words and create deterministic label mappings."""
-    with open(vocab_path, "r", encoding="utf-8") as f:
+    with open(vocab_path, encoding="utf-8") as f:
         data = json.load(f)
 
     words = [item["label"] for item in data["words"]]
@@ -230,8 +229,6 @@ def process_manifest(
     paths = np.empty(n_samples, dtype=object)
 
     start_time = time.time()
-    last_report_time = start_time
-
     for idx, row in enumerate(manifest_df.itertuples()):
         rel_path = row.path
         abs_path = dataset_root / rel_path
@@ -334,7 +331,7 @@ def process_manifest(
         "dataset_name": "SignBridge ASL Words Mode Preprocessed Tensors",
         "description": "Preprocessed isolated sign tensors with dominant-hand canonicalisation and shoulder normalization.",
         "git_commit": GIT_COMMIT_HASH,
-        "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "generated_at": datetime.datetime.now(datetime.UTC).isoformat(),
         "total_sequences": int(n_samples),
         "split_counts": {
             "train": int(np.sum(splits == "train")),

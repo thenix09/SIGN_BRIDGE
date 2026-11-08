@@ -40,6 +40,8 @@ backend/data/selected_parquet_paths.txt
 backend/data/processed/
 backend/data/processed/*.npz
 backend/data/processed/meta.json
+backend/data/samples.csv
+backend/models/hand_landmarker.task
 *.npz
 *.pt
 *.pth
