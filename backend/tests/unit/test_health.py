@@ -10,9 +10,14 @@ from backend.app.core.exceptions import InvalidLandmarkError
 from backend.app.main import create_app
 
 
-def test_health_endpoint_no_models() -> None:
+def test_health_endpoint_no_models(tmp_path: Path) -> None:
     """Verify /api/health returns ok and model_loaded false when models are missing."""
+    custom_settings = Settings(
+        model_path=str(tmp_path / "missing_asl_model.joblib"),
+        word_model_path=str(tmp_path / "missing_word_model.onnx"),
+    )
     app = create_app()
+    app.dependency_overrides[get_app_settings] = lambda: custom_settings
     client = TestClient(app)
 
     response = client.get("/api/health")

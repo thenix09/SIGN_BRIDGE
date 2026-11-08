@@ -1,0 +1,141 @@
+# SignBridge Model Card & Dataset Documentation
+
+**Document Owner:** Person B (Data & Machine Learning)  
+**Specification Reference:** Build Specification v2 (§2, §14, §19)  
+**Last Updated:** November 7, 2026  
+
+---
+
+## 1. Overview & System Purpose
+
+SignBridge is a lightweight, privacy-preserving two-way American Sign Language (ASL) educational bridge designed for real-time browser interaction:
+1. **Sign to Text (Spell Mode):** Recognizes static ASL fingerspelled letters (A–Z) from single-hand MediaPipe landmarks.
+2. **Sign to Text (Words Mode):** Recognizes isolated ASL signs from a curated closed vocabulary of 30 common words using upper-body landmark sequences.
+3. **Text to Sign:** Synthesizes sign animations using dictionary playback of recorded sign movements for vocabulary words and fingerspelled fallbacks for out-of-vocabulary terms.
+
+---
+
+## 2. Dataset Sources, Licences & Attribution
+
+### 2.1 Words Mode: Kaggle Isolated Sign Language Recognition (`asl-signs`)
+- **Dataset Source:** Google "Isolated Sign Language Recognition" Competition ([Kaggle `asl-signs`](https://www.kaggle.com/competitions/asl-signs)), derived from the PopSign ASL project.
+- **Underlying Corpus:** PopSign ASL, developed by Georgia Institute of Technology and Google.
+- **Licence:** [Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/).
+- **Access Date:** November 7, 2026.
+- **Attribution Notice:**
+  > PopSign ASL Dataset © 2022 Georgia Institute of Technology and Google LLC. Licensed under CC BY 4.0.
+- **Redistribution Restrictions:**
+  - Raw Parquet landmark sequence files from Kaggle must not be redistributed, republished, or committed to public version control.
+  - The approved preprocessed tensors, manifest, and training checkpoints are also local-only and must not be committed to this repository.
+  - `.gitignore` excludes `backend/data/raw/`, `backend/data/processed/`, and model checkpoint files.
+- **Competition Rule Compliance:**
+  - Used strictly for non-commercial educational and research evaluation.
+  - The selected source subset contains 11,316 candidate sequences across 30 words and 21 signers. The approved processed dataset uses 200 sequences per word (6,000 total), with signer-disjoint train/validation/test splits of 4,200/900/900.
+
+### 2.2 Spell Mode: ASL Alphabet Dataset & Team Live Recordings
+- **Primary Source:** Kaggle [ASL Alphabet](https://www.kaggle.com/datasets/grassknoted/asl-alphabet), approximately 87,000 200x200 images in A-Z, `del`, `nothing`, and `space` classes. The letter classifier uses A-Z only; the other labels are excluded.
+- **Dataset Listing Licence:** GPL-2, as specified by the Kaggle dataset listing. This is separate from the word dataset's CC BY 4.0 licence above; do not apply the word-corpus attribution or licence to alphabet images.
+- **Access Date:** November 7, 2026.
+- **Data handling:** Raw images and derived feature CSVs are local-only and must not be committed. The static-pose classifier does not make J/Z movement recognition reliable.
+- **Domain Adaptation / Team Recordings:** The specification calls for 50 live samples per letter from each of three team members. These recordings are intended for person-level holdout evaluation and subsequent training; do not report them as collected or evaluated until results are available.
+
+---
+
+## 3. Privacy by Design & Landmark Constraints
+
+1. **Zero Video / Image Storage or Transmission:**
+   - Raw video frames never leave the client's web browser.
+   - Feature extraction (hands and pose) is performed entirely on-device in JavaScript using MediaPipe Tasks Vision.
+   - Only numeric landmark coordinates ($x, y, z$) are transmitted over WebSocket or REST.
+2. **Facial Privacy & Upper-Body Landmark Selection:**
+   - The raw Kaggle `asl-signs` dataset contains 468 facial mesh coordinates per frame.
+   - **In accordance with Build Specification v2 (§2, §7), all 468 facial mesh points are discarded during preprocessing.**
+   - Skeleton playback has no facial expressions (an acknowledged ASL limitation).
+   - Only the **9 specified upper-body pose landmarks** (`POSE_INDICES = (0, 9, 10, 11, 12, 13, 14, 15, 16)`) and **both hands** (21 landmarks each) are preserved:
+     - **Head / Face anchors (3 pose points):** Nose (index 0), left mouth corner (index 9), right mouth corner (index 10).
+     - **Torso & Arms (6 pose points):** Left shoulder (index 11), right shoulder (index 12), left elbow (index 13), right elbow (index 14), left wrist (index 15), right wrist (index 16).
+     - **Hands (42 points total):** Left hand (21 landmarks, indices 0..20) and Right hand (21 landmarks, indices 0..20).
+   - **Feature Vector:** Each frame is encoded into exactly **104 values**:
+     - 18 pose coordinates ($9 \text{ points} \times [x, y]$)
+     - 42 left hand coordinates ($21 \text{ points} \times [x, y]$)
+     - 42 right hand coordinates ($21 \text{ points} \times [x, y]$)
+     - 2 hand presence binary flags ($1.0$ if detected, $0.0$ if missing/zero-filled)
+     - Coordinate dimensions use $x$ and $y$ only; $z$ depth is discarded as noisy.
+
+---
+
+## 4. Intended Use & Honesty Disclaimers
+
+### 4.1 Intended Use
+- Educational demonstration of machine learning applied to assistive accessibility technology.
+- Learning tool for students and developers practicing basic isolated ASL vocabulary and fingerspelling.
+
+### 4.2 Out-of-Scope & Prohibited Use Cases
+- **Not a Translation System:** Words mode recognizes isolated signs from a closed vocabulary of 30 words. It has no continuous sentence translation model, temporal grammar parser, or facial expression grammar.
+- **Medical & Legal Prohibition:** SignBridge **MUST NOT** be deployed in healthcare, legal, emergency, safety-critical, or high-stakes communication environments.
+- **No Replacement for Certified Interpreters:** This project is an assistive prototype and does not replace qualified, certified Deaf or ASL interpreters.
+- **Motion Letter Limitations (J & Z):** ASL fingerspelling for letters J and Z requires dynamic motion. Spell mode evaluates only static hand frames; recognition for J and Z is therefore marked as low-reliability.
+- **Text-to-Sign Playback Disclaimer:** Text-to-sign playback is dictionary playback of recorded kinematic movements, not natural language generation.
+
+---
+
+## 5. Model Architecture & Pipeline Specifications
+
+### 5.1 Spell Mode (Letters)
+- **Input:** Single `HandFrame` of 21 landmarks ($x, y, z$).
+- **Features:** 63 normalized floats (wrist at origin, normalized by maximum distance from wrist).
+- **Canonicalization:** Letter handedness canonicalization ($x = 1 - x$) based on dataset majority label in `letters_meta.json`.
+- **Model:** `RandomForestClassifier(n_estimators=300)`.
+- **Inference Latency:** Target $<10\text{ ms}$ on CPU.
+
+### 5.2 Words Mode (Isolated Signs)
+- **Input:** `LandmarkWindow` containing a sequence of `LandmarkFrame`s.
+- **Preprocessing:**
+  - Leading/trailing idle hand frames trimmed.
+  - Coordinate normalization: Shoulder midpoint as origin; shoulder width as unit scale.
+  - Slot assignment: Left vs. right hand determined by distance to pose wrists (indices 15 & 16), immune to handedness label flips.
+  - Dominant-hand mirroring: Computed via cumulative wrist kinetic energy ($x \to -x$ if left-dominant).
+  - Temporal resampling: Uniform linear interpolation to fixed length $T = 32$ frames ($104$ features/frame).
+- **Architecture:** 1D Convolutional feature extractor + Bidirectional GRU (hidden size 128) + Linear classification head ($<2\text{M}$ parameters).
+- **Runtime:** Exported to ONNX (`word_model.onnx`) executed via `onnxruntime` with dynamic batching.
+- **Gate Requirement:** $\ge 0.75$ top-1 accuracy on held-out signers (`SIGNBRIDGE_WORD_GATE`).
+
+---
+
+## 6. Vocabulary & Selection Criteria
+
+The 30 isolated sign words selected for the closed vocabulary satisfy the strict spec requirements:
+- Every word has $\ge 150$ sequences in the dataset (actual minimum: 312 sequences).
+- Every word is signed by $\ge 15$ distinct signers (actual: all 21 participants sign each word).
+
+| Category | Words |
+| :--- | :--- |
+| **Greetings** | `hello`, `bye`, `thankyou`, `please` |
+| **Questions** | `who`, `where`, `why`, `if`, `any` |
+| **Family** | `mom`, `dad`, `brother`, `grandma` |
+| **Food & Drink** | `apple`, `milk`, `water`, `pizza` |
+| **Actions** | `jump`, `read`, `sleep`, `dance`, `drink` |
+| **Feelings** | `happy`, `sad`, `sick` |
+| **Objects** | `book`, `chair`, `car`, `shoe`, `pen` |
+
+---
+
+## 7. Model Evaluation & Pruning Log
+
+The initial 1D CNN + BiGRU checkpoint was selected using validation data only. The held-out test split was reserved for final reporting and was not used for model selection or tuning. Its recorded results are:
+
+| Metric | Result |
+| :--- | ---: |
+| Trainable parameters | 653,982 |
+| Best epoch | 28 |
+| Best validation loss | 1.1007 |
+| Best validation accuracy | 85.78% |
+| Training-split loss at selected checkpoint (evaluation mode) | 0.8012 |
+| Held-out test loss | 1.2461 |
+| Held-out test top-1 accuracy | 80.44% |
+| Macro precision | 81.45% |
+| Macro recall | 80.44% |
+| Macro F1 | 80.23% |
+| Model-card accuracy gate (>= 75%) | Passed |
+
+`chair` is the only word below 60% per-word test accuracy (43.33%); it should be treated as a weak class despite the overall gate passing. The training-split loss above is measured in evaluation mode at the selected checkpoint; epoch-level training-loss history and elapsed training duration were not preserved in the existing artifacts. The full per-word metrics and 30 x 30 confusion matrix are saved in the local `backend/models/word_eval_metrics.json` artifact. The training script records epoch loss and duration for future runs. The held-out test set must not be used to adjust the model or vocabulary.

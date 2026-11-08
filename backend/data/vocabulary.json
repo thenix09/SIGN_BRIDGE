@@ -1,0 +1,45 @@
+
+{
+  "words": [
+    {"label": "hello", "category": "greetings"},
+    {"label": "bye", "category": "greetings"},
+    {"label": "thankyou", "category": "greetings"},
+    {"label": "please", "category": "greetings"},
+
+    {"label": "who", "category": "questions"},
+    {"label": "where", "category": "questions"},
+    {"label": "why", "category": "questions"},
+    {"label": "if", "category": "questions"},
+    {"label": "any", "category": "questions"},
+
+    {"label": "mom", "category": "family"},
+    {"label": "dad", "category": "family"},
+    {"label": "brother", "category": "family"},
+    {"label": "grandma", "category": "family"},
+
+    {"label": "apple", "category": "food and drink"},
+    {"label": "milk", "category": "food and drink"},
+    {"label": "water", "category": "food and drink"},
+    {"label": "pizza", "category": "food and drink"},
+
+    {"label": "jump", "category": "actions"},
+    {"label": "read", "category": "actions"},
+    {"label": "sleep", "category": "actions"},
+    {"label": "dance", "category": "actions"},
+    {"label": "drink", "category": "actions"},
+
+    {"label": "happy", "category": "feelings"},
+    {"label": "sad", "category": "feelings"},
+    {"label": "sick", "category": "feelings"},
+
+    {"label": "book", "category": "objects"},
+    {"label": "chair", "category": "objects"},
+    {"label": "car", "category": "objects"},
+    {"label": "shoe", "category": "objects"},
+    {"label": "pen", "category": "objects"}
+  ],
+  "aliases": {
+    "thank you": "thankyou",
+    "thanks": "thankyou"
+  }
+}
