@@ -34,6 +34,9 @@ htmlcov/
 
 # Data & Models
 backend/data/raw/
+backend/data/train.csv
+backend/data/selected_sequences.csv
+backend/data/selected_parquet_paths.txt
 *.db
 *.sqlite3
 
