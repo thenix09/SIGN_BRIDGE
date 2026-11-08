@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
+from starlette.types import ASGIApp
 
 from backend.app.api.routes import health
 from backend.app.core.config import get_settings
@@ -18,7 +19,7 @@ from backend.app.core.exceptions import SignBridgeError
 class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
     """Enforce maximum incoming payload size."""
 
-    def __init__(self, app: FastAPI, max_bytes: int = 65536) -> None:
+    def __init__(self, app: ASGIApp, max_bytes: int = 65536) -> None:
         super().__init__(app)
         self.max_bytes = max_bytes
 
