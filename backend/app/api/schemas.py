@@ -1,5 +1,6 @@
 """Pydantic schemas for API request and response validation."""
 
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -211,5 +212,63 @@ class TextToSignResponse(BaseModel):
     frames: list[SignFrameResponse]
     segments: list[SignSegment]
     fallback_tokens: list[str]
+
+
+class HistoryItemResponse(BaseModel):
+    """Individual translation history record."""
+
+    id: int | None = None
+    direction: str
+    language: str
+    content: str
+    created_at: datetime
+
+
+class HistoryListResponse(BaseModel):
+    """Response for GET /api/history."""
+
+    items: list[HistoryItemResponse]
+
+
+class CreateSampleRequest(BaseModel):
+    """Payload for POST /api/samples."""
+
+    label: str = Field(..., min_length=1, max_length=1, description="Single uppercase letter A-Z")
+    handedness: Literal["Left", "Right"]
+    landmarks: list[list[float]] = Field(..., description="21 landmarks each [x, y, z]")
+    group: str = "collected"
+
+    @field_validator("label")
+    @classmethod
+    def validate_label(cls, v: str) -> str:
+        clean = v.strip().upper()
+        if not clean.isalpha() or len(clean) != 1:
+            raise ValueError("Sample label must be a single alphabetic letter A-Z")
+        return clean
+
+    @field_validator("landmarks")
+    @classmethod
+    def validate_landmarks(cls, v: list[list[float]]) -> list[list[float]]:
+        if len(v) != 21:
+            raise ValueError(f"Sample requires exactly 21 landmarks, got {len(v)}")
+        for i, pt in enumerate(v):
+            if len(pt) < 3:
+                raise ValueError(f"Landmark {i} requires [x, y, z]")
+        return v
+
+
+class CreateSampleResponse(BaseModel):
+    """Response returned by POST /api/samples."""
+
+    id: int
+    count_for_label: int
+
+
+class SampleStatsResponse(BaseModel):
+    """Response returned by GET /api/samples/stats."""
+
+    counts: dict[str, int]
+    total: int
+
 
 

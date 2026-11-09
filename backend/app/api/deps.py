@@ -7,10 +7,20 @@ from backend.app.core.events import default_event_bus
 from backend.app.recognition.factory import RecognizerFactory
 from backend.app.recognition.words import SuggestionEngine
 from backend.app.rendering.factory import RendererFactory
+from backend.app.repositories.db import init_db
+from backend.app.repositories.sample_repo import SQLiteSampleRepository
+from backend.app.repositories.translation_repo import SQLiteTranslationRepository
+from backend.app.services.history import HistoryService
 from backend.app.services.sessions import SessionManager, default_session_manager
 from backend.app.services.sign_to_text import SignToTextService
 from backend.app.services.text_to_sign import TextToSignService
 from backend.app.services.word_sign import WordSignService
+
+# Initialize database tables and HistoryService at startup bound to default_event_bus
+init_db()
+default_translation_repo = SQLiteTranslationRepository()
+default_sample_repo = SQLiteSampleRepository()
+default_history_service = HistoryService(repo=default_translation_repo, bus=default_event_bus)
 
 
 def get_app_settings() -> Settings:
@@ -55,3 +65,13 @@ def get_text_to_sign_service() -> TextToSignService:
         renderer_factory=RendererFactory,
         bus=default_event_bus,
     )
+
+
+def get_history_service() -> HistoryService:
+    """Dependency provider returning the HistoryService."""
+    return default_history_service
+
+
+def get_sample_repository() -> SQLiteSampleRepository:
+    """Dependency provider returning the SQLiteSampleRepository."""
+    return default_sample_repo
