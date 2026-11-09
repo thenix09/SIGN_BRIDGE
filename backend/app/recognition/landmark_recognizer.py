@@ -24,6 +24,7 @@ class LandmarkRecognizer(SignRecognizer):
         self.threshold = threshold if threshold is not None else settings.confidence_threshold
         self._model: Any = None
         self._classes: list[str] = []
+        self._prob_ema: Any = None
 
     @property
     def language(self) -> str:
