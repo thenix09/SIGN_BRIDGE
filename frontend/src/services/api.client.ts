@@ -1,9 +1,15 @@
-import { HealthResponse, VocabularyResponse, GesturePrediction } from '../types/api';
+import {
+  HealthResponse,
+  VocabularyResponse,
+  RecognizeRequest,
+  RecognizeResponse,
+  TextToSignRequest,
+  TextToSignResponse,
+} from '../types/api';
 
 /**
- * SignBridge API Client (Stub Implementation for Day 1-3).
- * Keeps API communication strictly decoupled from UI components.
- * Will be swapped with actual backend endpoints once Person A releases the frozen API on Day 4.
+ * SignBridge API Client.
+ * Connects React frontend directly to the FastAPI backend endpoints.
  */
 class ApiClient {
   private baseUrl: string;
@@ -12,45 +18,70 @@ class ApiClient {
     this.baseUrl = baseUrl;
   }
 
-  /**
-   * Get the current API base URL.
-   */
   getBaseUrl(): string {
     return this.baseUrl;
   }
 
-  /**
-   * Health check endpoint stub.
-   */
   async checkHealth(): Promise<HealthResponse> {
-    return {
-      status: 'ok',
-      version: '0.1.0-stub',
-      timestamp: new Date().toISOString()
-    };
+    const res = await fetch(`${this.baseUrl}/health`);
+    if (!res.ok) throw new Error(`Health check failed: ${res.statusText}`);
+    return res.json();
   }
 
-  /**
-   * Vocabulary stub (ASL letters and baseline words).
-   */
-  async getVocabulary(): Promise<VocabularyResponse> {
-    return {
-      supported_letters: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'L', 'O', 'V', 'W', 'Y'],
-      supported_words: ['hello', 'thank you', 'please', 'yes', 'no', 'help', 'goodbye'],
-      languages: ['ASL']
-    };
+  async getVocabulary(language: string = 'ASL'): Promise<VocabularyResponse> {
+    const res = await fetch(`${this.baseUrl}/vocabulary?language=${encodeURIComponent(language)}`);
+    if (!res.ok) throw new Error(`Vocabulary fetch failed: ${res.statusText}`);
+    return res.json();
   }
 
-  /**
-   * Mock prediction for testing frontend layout pipeline.
-   */
-  async mockPredict(): Promise<GesturePrediction> {
-    return {
-      label: 'A',
-      confidence: 0.95,
-      handedness: 'Right',
-      timestamp: Date.now()
-    };
+  async recognizeLetter(request: RecognizeRequest): Promise<RecognizeResponse> {
+    const res = await fetch(`${this.baseUrl}/recognize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    if (!res.ok) throw new Error(`Recognition failed: ${res.statusText}`);
+    return res.json();
+  }
+
+  async resetSession(sessionId: string): Promise<{ ok: boolean }> {
+    const res = await fetch(`${this.baseUrl}/session/reset`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionId }),
+    });
+    if (!res.ok) throw new Error(`Session reset failed: ${res.statusText}`);
+    return res.json();
+  }
+
+  async backspaceSession(sessionId: string): Promise<RecognizeResponse> {
+    const res = await fetch(`${this.baseUrl}/session/backspace`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionId }),
+    });
+    if (!res.ok) throw new Error(`Session backspace failed: ${res.statusText}`);
+    return res.json();
+  }
+
+  async commitSession(sessionId: string, word?: string): Promise<RecognizeResponse> {
+    const res = await fetch(`${this.baseUrl}/session/commit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionId, word }),
+    });
+    if (!res.ok) throw new Error(`Session commit failed: ${res.statusText}`);
+    return res.json();
+  }
+
+  async textToSign(request: TextToSignRequest): Promise<TextToSignResponse> {
+    const res = await fetch(`${this.baseUrl}/text-to-sign`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    if (!res.ok) throw new Error(`Text to sign failed: ${res.statusText}`);
+    return res.json();
   }
 }
 
