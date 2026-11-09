@@ -20,15 +20,15 @@ class Settings(BaseSettings):
 
     # Recognition thresholds
     confidence_threshold: float = Field(
-        default=0.25,
+        default=0.40,
         description="Confidence threshold for letter recognition",
     )
     stability_required_frames: int = Field(
-        default=5,
+        default=4,
         description="Required consecutive frames for letter confirmation",
     )
     stability_cooldown_frames: int = Field(
-        default=8,
+        default=6,
         description="Frames before the same letter can be confirmed again",
     )
 
