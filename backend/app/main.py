@@ -11,9 +11,18 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 from starlette.types import ASGIApp
 
-from backend.app.api.routes import health
+from backend.app.api.routes import (
+    health,
+    history,
+    languages,
+    recognize,
+    samples,
+    text_to_sign,
+    words,
+)
 from backend.app.core.config import get_settings
 from backend.app.core.exceptions import SignBridgeError
+from backend.app.repositories.db import init_db
 
 
 class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
@@ -43,6 +52,9 @@ class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application instance."""
     settings = get_settings()
+
+    # Ensure database schema is initialized
+    init_db()
 
     app = FastAPI(
         title="SignBridge API",
@@ -86,8 +98,16 @@ def create_app() -> FastAPI:
             content={"error": "VALIDATION_ERROR", "detail": str(exc)},
         )
 
-    # 3. Include API Routers (base path /api)
+    # 3. Include API Routers (base path /api) and WebSockets
     app.include_router(health.router, prefix="/api")
+    app.include_router(languages.router, prefix="/api")
+    app.include_router(recognize.router, prefix="/api")
+    app.include_router(words.router, prefix="/api")
+    app.include_router(text_to_sign.router, prefix="/api")
+    app.include_router(history.router, prefix="/api")
+    app.include_router(samples.router, prefix="/api")
+    app.add_api_websocket_route("/ws/recognize", recognize.websocket_recognize)
+    app.add_api_websocket_route("/ws/recognize-words", words.websocket_recognize_words)
 
     # 4. Mount frontend static assets at / after /api and /ws
     frontend_dir = Path("frontend")
