@@ -24,6 +24,7 @@ class LandmarkRecognizer(SignRecognizer):
         self.threshold = threshold if threshold is not None else settings.confidence_threshold
         self._model: Any = None
         self._classes: list[str] = []
+        self._prob_ema: Any = None
 
     @property
     def language(self) -> str:
@@ -56,7 +57,14 @@ class LandmarkRecognizer(SignRecognizer):
         x_input = np.array([features], dtype=np.float32)
 
         if hasattr(self._model, "predict_proba"):
-            probs = self._model.predict_proba(x_input)[0]
+            raw_probs = self._model.predict_proba(x_input)[0]
+            if not hasattr(self, "_prob_ema") or self._prob_ema is None or len(self._prob_ema) != len(raw_probs):
+                self._prob_ema = raw_probs
+            else:
+                # Exponential moving average smoothing (alpha=0.35 stabilizes frame jitter)
+                self._prob_ema = 0.35 * raw_probs + 0.65 * self._prob_ema
+
+            probs = self._prob_ema
             max_idx = int(np.argmax(probs))
             confidence = float(probs[max_idx])
             label = (

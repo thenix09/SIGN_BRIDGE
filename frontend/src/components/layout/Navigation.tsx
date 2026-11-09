@@ -1,6 +1,6 @@
 import React from 'react';
 
-export type ActiveTab = 'spell' | 'words' | 'collect' | 'settings';
+export type ActiveTab = 'spell' | 'words' | 'text_to_sign' | 'collect' | 'settings';
 
 interface NavigationProps {
   activeTab: ActiveTab;
@@ -14,7 +14,13 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onSelectTab }
         className={`nav-tab ${activeTab === 'spell' ? 'active' : ''}`}
         onClick={() => onSelectTab('spell')}
       >
-        Fingerspelling (Spell)
+        Sign to Text (Spell)
+      </button>
+      <button
+        className={`nav-tab ${activeTab === 'text_to_sign' ? 'active' : ''}`}
+        onClick={() => onSelectTab('text_to_sign')}
+      >
+        Text to Sign (Animation)
       </button>
       <button
         className={`nav-tab ${activeTab === 'words' ? 'active' : ''}`}

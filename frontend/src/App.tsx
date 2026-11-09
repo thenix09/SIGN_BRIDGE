@@ -9,6 +9,8 @@ import { BadgeStatus } from './components/common/StatusBadge';
 import { DetectedHandData } from './types/landmarks';
 import { RecognizeResponse } from './types/api';
 
+import { TextToSignPlayer } from './components/text_to_sign/TextToSignPlayer';
+
 const SESSION_ID = 'user-webcam-session';
 
 export const App: React.FC = () => {
@@ -69,8 +71,8 @@ export const App: React.FC = () => {
     if (!hands || hands.length === 0) return;
 
     const now = performance.now();
-    // Throttle recognition requests to ~15 fps (every 66ms) to prevent network queuing
-    if (now - lastSendTimeRef.current < 66 || isRecognizingRef.current) {
+    // Throttle recognition requests to ~10 fps (every 100ms) for rock-solid stability
+    if (now - lastSendTimeRef.current < 100 || isRecognizingRef.current) {
       return;
     }
 
@@ -94,6 +96,14 @@ export const App: React.FC = () => {
       isRecognizingRef.current = false;
     }
   }, []);
+
+  const handleAddLetter = (letterToAdd: string) => {
+    if (!letterToAdd) return;
+    setRecognizeResult((prev) => ({
+      ...prev,
+      current_word: (prev.current_word || '') + letterToAdd,
+    }));
+  };
 
   const handleBackspace = async () => {
     try {
@@ -151,10 +161,15 @@ export const App: React.FC = () => {
 
   return (
     <MainLayout headerStatus={headerMeta.status} headerLabel={headerMeta.label}>
-      {(activeTab) => (
-        <>
-          {/* Primary Viewport Column */}
-          <section className="card camera-card" aria-label="Camera and Sign Recognition Viewport">
+      {(activeTab) => {
+        if (activeTab === 'text_to_sign') {
+          return <TextToSignPlayer />;
+        }
+
+        return (
+          <>
+            {/* Primary Viewport Column */}
+            <section className="card camera-card" aria-label="Camera and Sign Recognition Viewport">
             <div className="card-title">
               <h2>Camera Feed</h2>
               <span className="brand-badge">Mode: {activeTab.toUpperCase()}</span>
@@ -187,6 +202,23 @@ export const App: React.FC = () => {
                   <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
                     ({Math.round(recognizeResult.confidence * 100)}%)
                   </span>
+                  <button
+                    onClick={() => handleAddLetter(recognizeResult.label)}
+                    style={{
+                      marginLeft: '6px',
+                      background: '#0284c7',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '8px',
+                      padding: '4px 10px',
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                    title={`Add ${recognizeResult.label} to current word`}
+                  >
+                    + Add "{recognizeResult.label}"
+                  </button>
                 </div>
               )}
             </div>
@@ -275,7 +307,8 @@ export const App: React.FC = () => {
             </div>
           </aside>
         </>
-      )}
+        );
+      }}
     </MainLayout>
   );
 };
