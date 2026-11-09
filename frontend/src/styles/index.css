@@ -1,0 +1,540 @@
+/* SignBridge - Base Styles & Design Tokens (Plain CSS) */
+:root {
+  --color-bg: #0f172a;
+  --color-surface: #1e293b;
+  --color-surface-hover: #334155;
+  --color-border: #334155;
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-text-main: #f8fafc;
+  --color-text-muted: #94a3b8;
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+
+  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: var(--color-bg);
+  color: var(--color-text-main);
+  line-height: 1.5;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Typography */
+h1, h2, h3, h4 {
+  color: var(--color-text-main);
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+p {
+  color: var(--color-text-muted);
+}
+
+/* Accessibility Focus States */
+button:focus-visible, a:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Layout Utilities */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.main-content {
+  flex: 1;
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+  padding: var(--spacing-lg);
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--spacing-lg);
+}
+
+@media (max-width: 860px) {
+  .main-content {
+    grid-template-columns: 1fr;
+    padding: var(--spacing-md);
+  }
+}
+
+/* Header */
+.app-header {
+  background-color: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  padding: var(--spacing-md) var(--spacing-xl);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.brand-section {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.brand-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+}
+
+.brand-badge {
+  background: rgba(37, 99, 235, 0.2);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+}
+
+.header-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+/* Navigation Tabs */
+.nav-tabs {
+  background-color: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  padding: 0 var(--spacing-xl);
+  gap: var(--spacing-sm);
+  overflow-x: auto;
+}
+
+.nav-tab {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: var(--spacing-md) var(--spacing-md);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s ease-in-out;
+}
+
+.nav-tab:hover {
+  color: var(--color-text-main);
+}
+
+.nav-tab.active {
+  color: #60a5fa;
+  border-bottom-color: var(--color-primary);
+}
+
+/* Card Containers */
+.card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.card-title {
+  font-size: 1.1rem;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: var(--spacing-sm);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Primary Camera Viewport Card */
+.camera-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.viewport-placeholder {
+  aspect-ratio: 4 / 3;
+  background-color: #0b1120;
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-md);
+  color: var(--color-text-muted);
+  text-align: center;
+  padding: var(--spacing-lg);
+  min-height: 380px;
+}
+
+.viewport-placeholder-icon {
+  font-size: 2.5rem;
+  opacity: 0.7;
+}
+
+/* Controls */
+.button {
+  background-color: var(--color-primary);
+  color: #ffffff;
+  border: none;
+  padding: 10px 18px;
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  transition: background-color 0.15s ease;
+}
+
+.button:hover {
+  background-color: var(--color-primary-hover);
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.button-secondary {
+  background-color: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-main);
+}
+
+.button-secondary:hover {
+  background-color: var(--color-surface-hover);
+}
+
+.button-danger {
+  background-color: var(--color-error);
+  color: #ffffff;
+}
+
+.button-danger:hover {
+  background-color: #dc2626;
+}
+
+/* Status Badge */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.status-online {
+  background-color: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+}
+.status-online .status-dot {
+  background-color: var(--color-success);
+}
+
+.status-idle {
+  background-color: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+}
+.status-idle .status-dot {
+  background-color: var(--color-text-muted);
+}
+
+.status-requesting {
+  background-color: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+}
+.status-requesting .status-dot {
+  background-color: #3b82f6;
+  animation: pulse-dot 1.2s infinite;
+}
+
+.status-warning {
+  background-color: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+}
+.status-warning .status-dot {
+  background-color: var(--color-warning);
+}
+
+.status-error {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+.status-error .status-dot {
+  background-color: var(--color-error);
+}
+
+/* Camera Viewport & Stream */
+.camera-viewport-wrapper {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background-color: #0b1120;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 380px;
+}
+
+.camera-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+  display: block;
+}
+
+.camera-video.hidden {
+  display: none;
+}
+
+/* Landmark Canvas Overlay */
+.landmark-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.landmark-canvas.inactive {
+  display: none;
+}
+
+.landmark-canvas.active {
+  display: block;
+}
+
+.camera-live-badge {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(4px);
+  color: #ffffff;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  z-index: 10;
+}
+
+.camera-detection-badge {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(4px);
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  z-index: 10;
+}
+
+.detection-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.detect-pill-init {
+  color: #60a5fa;
+}
+.detect-pill-init .detection-dot {
+  background-color: #3b82f6;
+  animation: pulse-dot 1s infinite;
+}
+
+.detect-pill-active {
+  color: #34d399;
+}
+.detect-pill-active .detection-dot {
+  background-color: #10b981;
+}
+
+.detect-pill-idle {
+  color: #94a3b8;
+}
+.detect-pill-idle .detection-dot {
+  background-color: #64748b;
+}
+
+.detect-pill-error {
+  color: #f87171;
+}
+.detect-pill-error .detection-dot {
+  background-color: #ef4444;
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--color-success);
+  animation: pulse-dot 1.5s infinite;
+}
+
+.resolution-tag {
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+  margin-left: 2px;
+}
+
+.camera-state-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-lg);
+  text-align: center;
+  gap: var(--spacing-sm);
+  background-color: #0b1120;
+  z-index: 2;
+}
+
+.camera-state-icon {
+  font-size: 2.8rem;
+  line-height: 1;
+  margin-bottom: var(--spacing-xs);
+}
+
+.error-message-text {
+  color: #f87171;
+  font-weight: 500;
+  font-size: 0.95rem;
+  max-width: 440px;
+}
+
+.action-guide-text {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  max-width: 440px;
+}
+
+.spinner {
+  width: 38px;
+  height: 38px;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: var(--spacing-xs);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse-dot {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.85);
+  }
+}
+
+/* Camera Controls Card */
+.camera-controls-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.controls-status-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: rgba(15, 23, 42, 0.5);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+}
+
+.control-label {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.controls-actions-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+/* Footer */
+.app-footer {
+  background-color: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  padding: var(--spacing-md) var(--spacing-xl);
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
