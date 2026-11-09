@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { CameraErrorInfo, CameraStatus } from '../../types/camera';
 import { LandmarkCanvas } from './LandmarkCanvas';
-import { DetectedHandData, DetectionStatus } from '../../types/landmarks';
+import { DetectedHandData, DetectedPoseData, DetectionStatus } from '../../types/landmarks';
 
 interface CameraFeedProps {
   status: CameraStatus;
@@ -10,6 +10,7 @@ interface CameraFeedProps {
   videoRef: React.RefObject<HTMLVideoElement | null>;
   onRetry?: () => void;
   onHandsDetected?: (hands: DetectedHandData[]) => void;
+  onPoseDetected?: (pose: DetectedPoseData | null) => void;
 }
 
 export const CameraFeed: React.FC<CameraFeedProps> = ({
@@ -18,7 +19,8 @@ export const CameraFeed: React.FC<CameraFeedProps> = ({
   error,
   videoRef,
   onRetry,
-  onHandsDetected
+  onHandsDetected,
+  onPoseDetected
 }) => {
   const [resolution, setResolution] = useState<{ width: number; height: number } | null>(null);
   const [detectionStatus, setDetectionStatus] = useState<DetectionStatus>('idle');
@@ -57,10 +59,10 @@ export const CameraFeed: React.FC<CameraFeedProps> = ({
     }
   };
 
-  const handleDetectionStatusChange = (newStatus: DetectionStatus, count: number) => {
+  const handleDetectionStatusChange = useCallback((newStatus: DetectionStatus, count: number) => {
     setDetectionStatus(newStatus);
     setDetectedHandCount(count);
-  };
+  }, []);
 
   // Format detection pill status label and style
   const getDetectionLabel = () => {
@@ -102,6 +104,7 @@ export const CameraFeed: React.FC<CameraFeedProps> = ({
         cameraActive={status === 'active'}
         onDetectionStatusChange={handleDetectionStatusChange}
         onHandsDetected={onHandsDetected}
+        onPoseDetected={onPoseDetected}
       />
 
       {/* Live Badge overlay (top-left) */}
