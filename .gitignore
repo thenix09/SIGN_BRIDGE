@@ -59,3 +59,11 @@ backend/models/word_model.onnx
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Alphabet dataset and model artifacts
+backend/data/alphabet_export/
+backend/models/asl_model.joblib
+
+# Kaggle account-specific configuration
+notebooks/kernel-metadata.json
+notebooks/alphabet_kaggle/kernel-metadata.json
