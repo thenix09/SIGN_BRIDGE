@@ -107,17 +107,39 @@ def parquet_to_tensor(file_path: Path | str) -> np.ndarray:
 
     # Extract pose and verify 9 points
     pose_df = df[(df["type"] == "pose") & (df["landmark_index"].isin(POSE_INDICES))]
-    pose_x = pose_df.pivot(index="frame", columns="landmark_index", values="x")[list(POSE_INDICES)]
-    pose_y = pose_df.pivot(index="frame", columns="landmark_index", values="y")[list(POSE_INDICES)]
+    if pose_df.empty:
+        raise ValueError(f"No pose landmarks found in: {file_path}")
+    pose_x = pose_df.pivot(index="frame", columns="landmark_index", values="x").reindex(
+        index=unique_frames, columns=list(POSE_INDICES)
+    )
+    pose_y = pose_df.pivot(index="frame", columns="landmark_index", values="y").reindex(
+        index=unique_frames, columns=list(POSE_INDICES)
+    )
 
-    # Extract left and right hands
+    # Extract left and right hands (safely handle absent hands with no rows)
     lh_df = df[df["type"] == "left_hand"]
-    lh_x = lh_df.pivot(index="frame", columns="landmark_index", values="x")[list(range(N_HAND))]
-    lh_y = lh_df.pivot(index="frame", columns="landmark_index", values="y")[list(range(N_HAND))]
+    if lh_df.empty:
+        lh_x = pd.DataFrame(np.nan, index=unique_frames, columns=list(range(N_HAND)))
+        lh_y = pd.DataFrame(np.nan, index=unique_frames, columns=list(range(N_HAND)))
+    else:
+        lh_x = lh_df.pivot(index="frame", columns="landmark_index", values="x").reindex(
+            index=unique_frames, columns=list(range(N_HAND))
+        )
+        lh_y = lh_df.pivot(index="frame", columns="landmark_index", values="y").reindex(
+            index=unique_frames, columns=list(range(N_HAND))
+        )
 
     rh_df = df[df["type"] == "right_hand"]
-    rh_x = rh_df.pivot(index="frame", columns="landmark_index", values="x")[list(range(N_HAND))]
-    rh_y = rh_df.pivot(index="frame", columns="landmark_index", values="y")[list(range(N_HAND))]
+    if rh_df.empty:
+        rh_x = pd.DataFrame(np.nan, index=unique_frames, columns=list(range(N_HAND)))
+        rh_y = pd.DataFrame(np.nan, index=unique_frames, columns=list(range(N_HAND)))
+    else:
+        rh_x = rh_df.pivot(index="frame", columns="landmark_index", values="x").reindex(
+            index=unique_frames, columns=list(range(N_HAND))
+        )
+        rh_y = rh_df.pivot(index="frame", columns="landmark_index", values="y").reindex(
+            index=unique_frames, columns=list(range(N_HAND))
+        )
 
     frames: list[LandmarkFrame] = []
 

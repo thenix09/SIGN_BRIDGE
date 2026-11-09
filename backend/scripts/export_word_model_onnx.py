@@ -147,7 +147,7 @@ def export_and_verify(
         with torch.inference_mode():
             torch.onnx.export(
                 model,
-                torch.zeros(2, 32, 104, dtype=torch.float32),
+                (torch.zeros(2, 32, 104, dtype=torch.float32),),
                 str(temporary_path),
                 export_params=True,
                 opset_version=17,
@@ -238,7 +238,7 @@ def export_and_verify(
         "max_absolute_difference": max_abs_difference,
         "identical_top1_predictions": identical_predictions,
         "verified_dynamic_batch_sizes": dynamic_batch_sizes,
-        "checkpoint_epoch": int(checkpoint["epoch"]),
+        "checkpoint_epoch": int(str(checkpoint["epoch"])),
     }
 
 
