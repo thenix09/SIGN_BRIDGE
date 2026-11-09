@@ -177,3 +177,39 @@ class VocabularyResponse(BaseModel):
     status: Literal["available", "experimental", "withheld", "unavailable"]
     words: list[VocabularyWord]
 
+
+class TextToSignRequest(BaseModel):
+    """Payload for POST /api/text-to-sign."""
+
+    language: str = "ASL"
+    text: str = Field(..., max_length=200, description="Text to animate (max 200 characters)")
+
+
+class SignFrameResponse(BaseModel):
+    """Single animated sign frame."""
+
+    label: str
+    kind: Literal["word", "letter", "pause"]
+    pose: list[list[float]] = Field(default_factory=list)
+    left_hand: list[list[float]] | None = None
+    right_hand: list[list[float]] | None = None
+    duration_ms: int
+
+
+class SignSegment(BaseModel):
+    """Token segment mapping to animation frames."""
+
+    token: str
+    kind: Literal["word", "spelled"]
+    start_index: int
+    end_index: int
+
+
+class TextToSignResponse(BaseModel):
+    """Response returned by POST /api/text-to-sign."""
+
+    frames: list[SignFrameResponse]
+    segments: list[SignSegment]
+    fallback_tokens: list[str]
+
+

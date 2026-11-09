@@ -6,8 +6,10 @@ from backend.app.core.config import Settings, get_settings
 from backend.app.core.events import default_event_bus
 from backend.app.recognition.factory import RecognizerFactory
 from backend.app.recognition.words import SuggestionEngine
+from backend.app.rendering.factory import RendererFactory
 from backend.app.services.sessions import SessionManager, default_session_manager
 from backend.app.services.sign_to_text import SignToTextService
+from backend.app.services.text_to_sign import TextToSignService
 from backend.app.services.word_sign import WordSignService
 
 
@@ -43,5 +45,13 @@ def get_word_sign_service() -> WordSignService:
     return WordSignService(
         factory=RecognizerFactory,
         sessions=get_session_manager(),
+        bus=default_event_bus,
+    )
+
+
+def get_text_to_sign_service() -> TextToSignService:
+    """Dependency provider returning the TextToSignService."""
+    return TextToSignService(
+        renderer_factory=RendererFactory,
         bus=default_event_bus,
     )
