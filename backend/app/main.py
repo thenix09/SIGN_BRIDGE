@@ -11,7 +11,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 from starlette.types import ASGIApp
 
-from backend.app.api.routes import health, languages, recognize
+from backend.app.api.routes import health, languages, recognize, words
 from backend.app.core.config import get_settings
 from backend.app.core.exceptions import SignBridgeError
 
@@ -90,7 +90,9 @@ def create_app() -> FastAPI:
     app.include_router(health.router, prefix="/api")
     app.include_router(languages.router, prefix="/api")
     app.include_router(recognize.router, prefix="/api")
+    app.include_router(words.router, prefix="/api")
     app.add_api_websocket_route("/ws/recognize", recognize.websocket_recognize)
+    app.add_api_websocket_route("/ws/recognize-words", words.websocket_recognize_words)
 
     # 4. Mount frontend static assets at / after /api and /ws
     frontend_dir = Path("frontend")

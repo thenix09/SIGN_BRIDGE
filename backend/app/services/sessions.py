@@ -3,6 +3,7 @@
 from datetime import UTC, datetime, timedelta
 
 from backend.app.core.config import get_settings
+from backend.app.recognition.segmenter import SignSegmenter
 from backend.app.recognition.stability import StabilityFilter
 from backend.app.recognition.words import WordBuilder
 
@@ -19,6 +20,7 @@ class Session:
             cooldown_frames=cooldown_frames,
         )
         self.word_builder = WordBuilder()
+        self.segmenter = SignSegmenter()
         self.last_active: datetime = datetime.now(UTC)
 
     def touch(self) -> None:
@@ -29,6 +31,7 @@ class Session:
         """Reset stateful components within this session."""
         self.stability_filter.reset()
         self.word_builder.clear()
+        self.segmenter.reset()
         self.touch()
 
 

@@ -97,3 +97,83 @@ class OkResponse(BaseModel):
     """Generic success response."""
 
     ok: bool = True
+
+
+class WordCandidate(BaseModel):
+    """A single candidate prediction for word recognition."""
+
+    label: str
+    confidence: float
+
+
+class WordFrameInput(BaseModel):
+    """Input frame detections for sequence word recognition."""
+
+    pose: list[list[float]] | None = None
+    hands: list[list[list[float]]] = Field(default_factory=list)
+
+    @field_validator("pose")
+    @classmethod
+    def validate_pose(cls, v: list[list[float]] | None) -> list[list[float]] | None:
+        if v is None:
+            return None
+        if len(v) not in (9, 17, 33):
+            # Must have at least 9 or 17 points
+            if len(v) < 9:
+                raise ValueError(f"Pose requires at least 9 landmarks, got {len(v)}")
+        for pt in v:
+            if len(pt) < 2:
+                raise ValueError("Pose points require at least [x, y]")
+        return v
+
+    @field_validator("hands")
+    @classmethod
+    def validate_hands(cls, v: list[list[list[float]]]) -> list[list[list[float]]]:
+        if len(v) > 2:
+            raise ValueError(f"At most 2 hands allowed, got {len(v)}")
+        for h_idx, hand in enumerate(v):
+            if len(hand) != 21:
+                raise ValueError(f"Hand {h_idx} requires 21 landmarks, got {len(hand)}")
+            for pt in hand:
+                if len(pt) < 2:
+                    raise ValueError("Hand points require at least [x, y]")
+        return v
+
+
+class RecognizeWordsRequest(BaseModel):
+    """Request payload for word sequence recognition."""
+
+    session_id: str
+    language: str = "ASL"
+    frame: WordFrameInput | None = None
+    window: list[WordFrameInput] | None = None
+
+
+class RecognizeWordsResponse(BaseModel):
+    """Response returned for word sequence recognition."""
+
+    state: str = Field(description="Segmenter/recognition state: WAITING, SIGNING, COMPLETE")
+    top_k: list[WordCandidate] = Field(
+        default_factory=list, description="Top-k gesture predictions"
+    )
+    accepted_word: str | None = Field(
+        default=None, description="Accepted word if threshold & margin met"
+    )
+    sentence: str = Field(description="Accumulated sentence")
+    message: str | None = Field(default=None, description="Error or rejection reason")
+
+
+class VocabularyWord(BaseModel):
+    """Closed vocabulary word entry."""
+
+    label: str
+    category: str
+
+
+class VocabularyResponse(BaseModel):
+    """Response for GET /api/vocabulary."""
+
+    size: int
+    status: Literal["available", "experimental", "withheld", "unavailable"]
+    words: list[VocabularyWord]
+
