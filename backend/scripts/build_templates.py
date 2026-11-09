@@ -66,7 +66,7 @@ def build_templates(
         grouped_features: dict[str, list[list[float]]] = {}
         with open(csv_file, newline="", encoding="utf-8") as f:
             reader = csv.reader(f)
-            header = next(reader, None)
+            _ = next(reader, None)
             for row in reader:
                 if len(row) >= 65:  # label, group, f0..f62
                     label = row[0].strip().upper()
