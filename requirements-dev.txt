@@ -1,4 +1,5 @@
 -r requirements.txt
+kaggle>=1.6.17
 mediapipe>=0.10.14
 opencv-python-headless>=4.10.0
 torch>=2.2.0

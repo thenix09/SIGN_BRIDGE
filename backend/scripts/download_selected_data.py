@@ -26,7 +26,6 @@ from pathlib import Path
 from typing import Literal, Protocol
 
 import pyarrow.parquet as pq
-from kaggle.api.kaggle_api_extended import KaggleApi
 
 ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ROOT / "backend" / "data" / "selected_parquet_paths.txt"
@@ -153,9 +152,19 @@ def is_http_429(error: Exception) -> bool:
     return False
 
 
-def get_thread_kaggle_api() -> KaggleApi:
+def get_thread_kaggle_api() -> CompetitionFileApi:
     """Obtain or initialize an authenticated KaggleApi client unique to current thread."""
     if not hasattr(_thread_local, "api"):
+        try:
+            from kaggle.api.kaggle_api_extended import KaggleApi
+        except ModuleNotFoundError as exc:
+            if exc.name != "kaggle":
+                raise
+            raise RuntimeError(
+                "Kaggle is required to download dataset files. "
+                "Install the project's development requirements."
+            ) from exc
+
         api = KaggleApi()
         api.authenticate()
         _thread_local.api = api
