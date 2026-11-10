@@ -124,9 +124,10 @@ class SignToTextService:
                 current_confidence = gesture.confidence
         else:
             gesture = None
-            recognizer = self._get_recognizer(session, language)
-            if hasattr(recognizer, "reset"):
-                recognizer.reset()
+            with session._recognizers_lock:
+                existing_recognizer = session.recognizers.get(language)
+            if existing_recognizer is not None and hasattr(existing_recognizer, "reset"):
+                existing_recognizer.reset()
 
         # Pass through temporal stability filter
         state, confirmed_letter = session.stability_filter.update(gesture)
