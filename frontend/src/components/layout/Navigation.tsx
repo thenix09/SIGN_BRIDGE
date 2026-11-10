@@ -17,16 +17,16 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onSelectTab }
         Sign to Text (Spell)
       </button>
       <button
-        className={`nav-tab ${activeTab === 'text_to_sign' ? 'active' : ''}`}
-        onClick={() => onSelectTab('text_to_sign')}
-      >
-        Text to Sign (Animation)
-      </button>
-      <button
         className={`nav-tab ${activeTab === 'words' ? 'active' : ''}`}
         onClick={() => onSelectTab('words')}
       >
         Word Signs (Words)
+      </button>
+      <button
+        className={`nav-tab ${activeTab === 'text_to_sign' ? 'active' : ''}`}
+        onClick={() => onSelectTab('text_to_sign')}
+      >
+        Text to Sign (Animation)
       </button>
       <button
         className={`nav-tab ${activeTab === 'collect' ? 'active' : ''}`}

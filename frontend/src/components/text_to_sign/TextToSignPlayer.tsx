@@ -3,10 +3,14 @@ import { apiClient } from '../../services/api.client';
 import { TextToSignResponse, SignFrameResponse } from '../../types/api';
 import { HAND_CONNECTIONS } from '../../types/landmarks';
 
-const QUICK_PHRASES = ['HELLO', 'THANK YOU', 'WELCOME', 'ASL', 'GOOD MORNING', 'HELP'];
+const QUICK_PHRASES = ['HELLO', 'THANK YOU', 'WELCOME', 'ASL', 'GOOD MORNING', 'HELP', 'APPLE', 'PLEASE'];
 
-export const TextToSignPlayer: React.FC = () => {
-  const [inputText, setInputText] = useState('HELLO');
+interface TextToSignPlayerProps {
+  initialText?: string;
+}
+
+export const TextToSignPlayer: React.FC<TextToSignPlayerProps> = ({ initialText = 'HELLO' }) => {
+  const [inputText, setInputText] = useState(initialText);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [signData, setSignData] = useState<TextToSignResponse | null>(null);
@@ -49,15 +53,18 @@ export const TextToSignPlayer: React.FC = () => {
     }
   }, [inputText]);
 
-  // Initial translation on component mount
+  // Initial translation on component mount or initialText change
   useEffect(() => {
-    handleTranslate('HELLO');
+    if (initialText) {
+      setInputText(initialText);
+      handleTranslate(initialText);
+    }
     return () => {
       if (timerRef.current) {
         window.clearTimeout(timerRef.current);
       }
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [initialText]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Frame animation timer loop
   useEffect(() => {
@@ -84,7 +91,7 @@ export const TextToSignPlayer: React.FC = () => {
     };
   }, [isPlaying, currentFrameIndex, signData, playbackSpeed]);
 
-  // Render hand on canvas
+  // Render hand landmarks on canvas (reusing Person A's high-fidelity skeletal renderer)
   const renderFrameOnCanvas = useCallback((frame: SignFrameResponse) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -195,14 +202,14 @@ export const TextToSignPlayer: React.FC = () => {
     // 3. Draw Watermark / Frame Badge inside canvas
     ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
     ctx.beginPath();
-    ctx.roundRect(16, 16, 150, 40, 8);
+    ctx.roundRect(16, 16, 160, 40, 8);
     ctx.fill();
     ctx.strokeStyle = 'rgba(56, 189, 248, 0.3)';
     ctx.lineWidth = 1;
     ctx.stroke();
 
     ctx.fillStyle = '#38bdf8';
-    ctx.font = '700 18px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+    ctx.font = '700 16px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
     ctx.textAlign = 'left';
     ctx.fillText(frame.kind === 'pause' ? 'PAUSE' : `SIGN: ${frame.label}`, 28, 42);
   }, []);
@@ -218,6 +225,23 @@ export const TextToSignPlayer: React.FC = () => {
   }, [currentFrameIndex, signData, renderFrameOnCanvas]);
 
   const activeFrame = signData?.frames[currentFrameIndex];
+  const totalFrames = signData?.frames.length || 0;
+
+  // Step controls
+  const handlePrevFrame = () => {
+    setIsPlaying(false);
+    setCurrentFrameIndex((prev) => Math.max(0, prev - 1));
+  };
+
+  const handleNextFrame = () => {
+    setIsPlaying(false);
+    setCurrentFrameIndex((prev) => Math.min(Math.max(0, totalFrames - 1), prev + 1));
+  };
+
+  const handleRestart = () => {
+    setIsPlaying(false);
+    setCurrentFrameIndex(0);
+  };
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.6fr) minmax(320px, 1fr)', gap: '24px' }}>
@@ -227,7 +251,7 @@ export const TextToSignPlayer: React.FC = () => {
           <div>
             <h2 style={{ margin: 0, fontSize: '1.25rem', color: '#f8fafc' }}>Text-to-Sign Demonstration</h2>
             <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: '#94a3b8' }}>
-              Synthesizes 3D skeletal ASL animations from English text.
+              Synthesizes 3D skeletal ASL animations from English text via backend renderer.
             </p>
           </div>
           {activeFrame && (
@@ -295,16 +319,16 @@ export const TextToSignPlayer: React.FC = () => {
         </div>
 
         {/* Timeline Scrubber & Progress */}
-        {signData && signData.frames.length > 0 && (
+        {signData && totalFrames > 0 && (
           <div style={{ marginTop: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '6px' }}>
-              <span>Frame {currentFrameIndex + 1} of {signData.frames.length}</span>
-              <span>{Math.round(((currentFrameIndex + 1) / signData.frames.length) * 100)}%</span>
+              <span>Frame {currentFrameIndex + 1} of {totalFrames}</span>
+              <span>{Math.round(((currentFrameIndex + 1) / totalFrames) * 100)}%</span>
             </div>
             <input
               type="range"
               min={0}
-              max={signData.frames.length - 1}
+              max={totalFrames - 1}
               value={currentFrameIndex}
               onChange={(e) => {
                 setIsPlaying(false);
@@ -319,7 +343,7 @@ export const TextToSignPlayer: React.FC = () => {
           </div>
         )}
 
-        {/* Playback Controls Toolbar */}
+        {/* Playback Controls Toolbar: Play, Pause, Next, Previous, Restart */}
         <div
           style={{
             marginTop: '16px',
@@ -330,36 +354,57 @@ export const TextToSignPlayer: React.FC = () => {
             gap: '12px',
           }}
         >
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {/* Restart */}
+            <button
+              onClick={handleRestart}
+              className="btn btn-secondary"
+              title="Restart animation from frame 1"
+              disabled={!signData || totalFrames === 0}
+            >
+              ⏮ Restart
+            </button>
+
+            {/* Previous Frame */}
+            <button
+              onClick={handlePrevFrame}
+              className="btn btn-secondary"
+              title="Previous frame"
+              disabled={!signData || totalFrames === 0 || currentFrameIndex <= 0}
+            >
+              ◀ Prev
+            </button>
+
+            {/* Play / Pause / Replay */}
             <button
               onClick={() => {
-                if (currentFrameIndex >= (signData?.frames.length || 1) - 1) {
+                if (currentFrameIndex >= totalFrames - 1) {
                   setCurrentFrameIndex(0);
                 }
                 setIsPlaying(!isPlaying);
               }}
               className="btn btn-primary"
-              style={{ minWidth: '100px' }}
-              disabled={!signData || signData.frames.length === 0}
+              style={{ minWidth: '110px' }}
+              disabled={!signData || totalFrames === 0}
             >
-              {isPlaying ? '⏸ Pause' : currentFrameIndex >= (signData?.frames.length || 1) - 1 ? '↺ Replay' : '▶ Play'}
+              {isPlaying ? '⏸ Pause' : currentFrameIndex >= totalFrames - 1 ? '↺ Replay' : '▶ Play'}
             </button>
+
+            {/* Next Frame */}
             <button
-              onClick={() => {
-                setIsPlaying(false);
-                setCurrentFrameIndex(0);
-              }}
+              onClick={handleNextFrame}
               className="btn btn-secondary"
-              disabled={!signData || signData.frames.length === 0}
+              title="Next frame"
+              disabled={!signData || totalFrames === 0 || currentFrameIndex >= totalFrames - 1}
             >
-              Reset
+              Next ▶
             </button>
           </div>
 
           {/* Speed Selector */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Speed:</span>
-            {[0.5, 1.0, 1.5].map((spd) => (
+            {[0.5, 1.0, 1.5, 2.0].map((spd) => (
               <button
                 key={spd}
                 onClick={() => setPlaybackSpeed(spd)}
@@ -371,6 +416,7 @@ export const TextToSignPlayer: React.FC = () => {
                   padding: '4px 8px',
                   fontSize: '0.8rem',
                   cursor: 'pointer',
+                  fontWeight: playbackSpeed === spd ? 700 : 400
                 }}
               >
                 {spd}x
@@ -437,6 +483,26 @@ export const TextToSignPlayer: React.FC = () => {
           </div>
         )}
 
+        {/* Graceful Unsupported Words Notice */}
+        {signData && signData.fallback_tokens && signData.fallback_tokens.length > 0 && (
+          <div
+            style={{
+              marginTop: '12px',
+              padding: '10px 14px',
+              borderRadius: '8px',
+              background: 'rgba(245, 158, 11, 0.12)',
+              border: '1px solid rgba(245, 158, 11, 0.3)',
+              color: '#fbbf24',
+              fontSize: '0.82rem',
+              lineHeight: 1.4,
+            }}
+          >
+            ℹ <strong>Fingerspelling Fallback:</strong> The word(s){' '}
+            <em>{signData.fallback_tokens.map((t) => `"${t}"`).join(', ')}</em> are not in the lexical dictionary
+            and are being spelled out letter-by-letter.
+          </div>
+        )}
+
         {/* Quick Example Chips */}
         <div style={{ marginTop: '24px' }}>
           <label style={{ display: 'block', fontSize: '0.85rem', color: '#94a3b8', marginBottom: '8px' }}>
@@ -495,7 +561,7 @@ export const TextToSignPlayer: React.FC = () => {
                       borderRadius: '10px',
                     }}
                   >
-                    {seg.kind === 'word' ? 'Lexical Word' : `Spelled (${seg.end_index - seg.start_index} letters)`}
+                    {seg.kind === 'word' ? 'Lexical Sign' : `Spelled (${seg.end_index - seg.start_index} letters)`}
                   </span>
                 </div>
               ))}

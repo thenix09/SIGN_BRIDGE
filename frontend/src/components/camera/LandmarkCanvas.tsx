@@ -2,9 +2,12 @@ import React, { useEffect, useRef, useCallback } from 'react';
 import { mediaPipeService } from '../../services/mediapipe.service';
 import {
   DetectedHandData,
+  DetectedPoseData,
   DetectionStatus,
   HAND_CONNECTIONS,
-  Handedness
+  Handedness,
+  UPPER_BODY_POSE_CONNECTIONS,
+  UPPER_BODY_POSE_INDICES
 } from '../../types/landmarks';
 
 interface LandmarkCanvasProps {
@@ -12,6 +15,7 @@ interface LandmarkCanvasProps {
   cameraActive: boolean;
   onDetectionStatusChange?: (status: DetectionStatus, handCount: number) => void;
   onHandsDetected?: (hands: DetectedHandData[]) => void;
+  onPoseDetected?: (pose: DetectedPoseData | null) => void;
 }
 
 // Visual themes for left and right hands to ensure high contrast and clear distinction
@@ -34,11 +38,20 @@ const HAND_THEMES = {
   }
 };
 
+// Theme for upper-body pose skeleton
+const POSE_THEME = {
+  lineColor: 'rgba(192, 132, 252, 0.75)', // Light purple/violet
+  jointFill: '#9333ea',                  // Vibrant purple
+  jointBorder: '#ffffff',
+  anchorFill: '#38bdf8'                  // Cyan for face anchors
+};
+
 export const LandmarkCanvas: React.FC<LandmarkCanvasProps> = ({
   videoRef,
   cameraActive,
   onDetectionStatusChange,
-  onHandsDetected
+  onHandsDetected,
+  onPoseDetected
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animationFrameRef = useRef<number | null>(null);
@@ -71,6 +84,8 @@ export const LandmarkCanvas: React.FC<LandmarkCanvasProps> = ({
         ctx?.clearRect(0, 0, canvas.width, canvas.height);
       }
       updateStatus('idle', 0);
+      onHandsDetected?.([]);
+      onPoseDetected?.(null);
       return;
     }
 
@@ -80,7 +95,7 @@ export const LandmarkCanvas: React.FC<LandmarkCanvasProps> = ({
       try {
         await mediaPipeService.init();
       } catch (err) {
-        console.error('Failed to initialize MediaPipe HandLandmarker:', err);
+        console.error('Failed to initialize MediaPipe models:', err);
         updateStatus('error', 0);
         return;
       }
@@ -118,16 +133,80 @@ export const LandmarkCanvas: React.FC<LandmarkCanvasProps> = ({
           lastVideoTimeRef.current = video.currentTime;
 
           const timestamp = performance.now();
-          const results = mediaPipeService.detectForVideo(video, timestamp);
+          const combined = mediaPipeService.detectForVideo(video, timestamp);
 
-          // Clear previous skeleton overlay
+          // Clear previous skeleton overlays
           ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-          if (results && results.landmarks && results.landmarks.length > 0) {
+          // Helper: Transform landmark coordinates to match mirrored video display
+          // Video uses scaleX(-1), so screen X = (1 - landmark.x) * canvasWidth
+          const getScreenPoint = (lm: { x: number; y: number }) => ({
+            x: (1 - lm.x) * canvas.width,
+            y: lm.y * canvas.height
+          });
+
+          // ------------------------------------------------------------------
+          // 1. Draw Pose Tracking Skeleton (Upper body)
+          // ------------------------------------------------------------------
+          const rawPose = combined?.pose?.landmarks?.[0];
+          if (rawPose && rawPose.length >= 17) {
+            // Draw upper body connections
+            ctx.lineWidth = 2.5;
+            ctx.strokeStyle = POSE_THEME.lineColor;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            UPPER_BODY_POSE_CONNECTIONS.forEach(({ start, end }) => {
+              if (start < rawPose.length && end < rawPose.length) {
+                const p1 = getScreenPoint(rawPose[start]);
+                const p2 = getScreenPoint(rawPose[end]);
+                ctx.beginPath();
+                ctx.moveTo(p1.x, p1.y);
+                ctx.lineTo(p2.x, p2.y);
+                ctx.stroke();
+              }
+            });
+
+            // Draw upper body joints (9 key landmarks)
+            UPPER_BODY_POSE_INDICES.forEach((idx) => {
+              if (idx < rawPose.length) {
+                const pt = getScreenPoint(rawPose[idx]);
+                const isAnchor = idx === 0 || idx === 9 || idx === 10;
+                const radius = isAnchor ? 3.5 : 4.5;
+
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y, radius, 0, 2 * Math.PI);
+                ctx.fillStyle = POSE_THEME.jointBorder;
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y, radius - 1.5, 0, 2 * Math.PI);
+                ctx.fillStyle = isAnchor ? POSE_THEME.anchorFill : POSE_THEME.jointFill;
+                ctx.fill();
+              }
+            });
+
+            onPoseDetected?.({
+              landmarks: rawPose.map((lm) => ({
+                x: lm.x,
+                y: lm.y,
+                z: lm.z,
+                visibility: lm.visibility
+              }))
+            });
+          } else {
+            onPoseDetected?.(null);
+          }
+
+          // ------------------------------------------------------------------
+          // 2. Draw Hand Tracking Skeleton & Handedness Badges
+          // ------------------------------------------------------------------
+          const handResults = combined?.hands;
+          if (handResults && handResults.landmarks && handResults.landmarks.length > 0) {
             const detectedHands: DetectedHandData[] = [];
 
-            results.landmarks.forEach((landmarks, index) => {
-              const handednessCategory = results.handedness?.[index]?.[0];
+            handResults.landmarks.forEach((landmarks, index) => {
+              const handednessCategory = handResults.handedness?.[index]?.[0];
               const rawHandedness = (handednessCategory?.categoryName || 'Right') as Handedness;
               const score = handednessCategory?.score ?? 0.9;
 
@@ -137,15 +216,7 @@ export const LandmarkCanvas: React.FC<LandmarkCanvasProps> = ({
                 score
               });
 
-              // Select visual theme based on handedness
               const theme = HAND_THEMES[rawHandedness] || HAND_THEMES.Right;
-
-              // Helper: Transform landmark coordinates to match mirrored video display
-              // Video uses scaleX(-1), so screen X = (1 - landmark.x) * canvasWidth
-              const getScreenPoint = (lm: { x: number; y: number }) => ({
-                x: (1 - lm.x) * canvas.width,
-                y: lm.y * canvas.height
-              });
 
               // 1. Draw Skeleton Connections
               ctx.lineWidth = 3;
@@ -156,7 +227,6 @@ export const LandmarkCanvas: React.FC<LandmarkCanvasProps> = ({
               HAND_CONNECTIONS.forEach(({ start, end }) => {
                 const p1 = getScreenPoint(landmarks[start]);
                 const p2 = getScreenPoint(landmarks[end]);
-
                 ctx.beginPath();
                 ctx.moveTo(p1.x, p1.y);
                 ctx.lineTo(p2.x, p2.y);
@@ -165,27 +235,23 @@ export const LandmarkCanvas: React.FC<LandmarkCanvasProps> = ({
 
               // 2. Draw 21 Landmark Joints
               const fingertipIndices = [4, 8, 12, 16, 20];
-
               landmarks.forEach((lm, pointIdx) => {
                 const pt = getScreenPoint(lm);
                 const isFingertip = fingertipIndices.includes(pointIdx);
                 const radius = isFingertip ? 5.5 : 4;
 
-                // Outer border
                 ctx.beginPath();
                 ctx.arc(pt.x, pt.y, radius, 0, 2 * Math.PI);
                 ctx.fillStyle = isFingertip ? theme.tipFill : theme.jointBorder;
                 ctx.fill();
 
-                // Inner core
                 ctx.beginPath();
                 ctx.arc(pt.x, pt.y, radius - 1.8, 0, 2 * Math.PI);
                 ctx.fillStyle = theme.jointFill;
                 ctx.fill();
               });
 
-              // 3. Draw Handedness Label Pill
-              // Position near wrist (landmark 0)
+              // 3. Draw Handedness Label Pill near wrist (landmark 0)
               const wristPt = getScreenPoint(landmarks[0]);
               const labelText = `${rawHandedness} (${Math.round(score * 100)}%)`;
 
@@ -197,22 +263,21 @@ export const LandmarkCanvas: React.FC<LandmarkCanvasProps> = ({
               const pillX = Math.max(10, Math.min(canvas.width - pillWidth - 10, wristPt.x - pillWidth / 2));
               const pillY = Math.max(24, Math.min(canvas.height - 10, wristPt.y + 24));
 
-              // Pill background
               ctx.fillStyle = theme.badgeBg;
               ctx.beginPath();
               ctx.roundRect(pillX, pillY - pillHeight + 4, pillWidth, pillHeight, 6);
               ctx.fill();
 
-              // Pill text
               ctx.fillStyle = theme.badgeText;
               ctx.textBaseline = 'middle';
               ctx.fillText(labelText, pillX + paddingX, pillY - pillHeight / 2 + 4);
             });
 
-            updateStatus('detecting', results.landmarks.length);
+            updateStatus('detecting', handResults.landmarks.length);
             onHandsDetected?.(detectedHands);
           } else {
             updateStatus('no_hands', 0);
+            onHandsDetected?.([]);
           }
         }
 
@@ -231,9 +296,9 @@ export const LandmarkCanvas: React.FC<LandmarkCanvasProps> = ({
         animationFrameRef.current = null;
       }
     };
-  }, [cameraActive, videoRef, updateStatus, onHandsDetected]);
+  }, [cameraActive, videoRef, updateStatus, onHandsDetected, onPoseDetected]);
 
-  // Clean up MediaPipe resources when the component unmounts
+  // Clean up MediaPipe resources on component unmount
   useEffect(() => {
     return () => {
       mediaPipeService.close();
