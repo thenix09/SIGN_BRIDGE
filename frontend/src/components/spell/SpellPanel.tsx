@@ -560,13 +560,19 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
         <label className="spell-section-label">Current word</label>
         <div className="spell-word-buffer" aria-live="polite" aria-label="Current word">
           {wordBuffer.length > 0 ? (
-            wordBuffer.map((ch, i) => (
-              <span key={i} className="spell-letter-chip">
-                {ch}
-              </span>
-            ))
+            <>
+              {wordBuffer.map((ch, i) => (
+                <span key={i} className="spell-letter-chip">
+                  {ch}
+                </span>
+              ))}
+              <span className="spell-blinking-cursor" aria-hidden="true">|</span>
+            </>
           ) : (
-            <span className="spell-word-placeholder">—</span>
+            <span className="spell-word-placeholder">
+              <span>Show letters to spell</span>
+              <span className="spell-blinking-cursor" aria-hidden="true">|</span>
+            </span>
           )}
         </div>
 

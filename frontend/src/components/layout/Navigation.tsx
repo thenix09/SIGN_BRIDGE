@@ -14,25 +14,29 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onSelectTab }
         className={`nav-tab ${activeTab === 'spell' ? 'active' : ''}`}
         onClick={() => onSelectTab('spell')}
       >
-        Sign to Text (Spell)
+        <span aria-hidden="true">🔤</span>
+        <span>Fingerspell</span>
       </button>
       <button
         className={`nav-tab ${activeTab === 'words' ? 'active' : ''}`}
         onClick={() => onSelectTab('words')}
       >
-        Word Signs (Words)
+        <span aria-hidden="true">💬</span>
+        <span>Word Signs</span>
       </button>
       <button
         className={`nav-tab ${activeTab === 'text_to_sign' ? 'active' : ''}`}
         onClick={() => onSelectTab('text_to_sign')}
       >
-        Text to Sign (Animation)
+        <span aria-hidden="true">🤖</span>
+        <span>Text to Sign</span>
       </button>
       <button
         className={`nav-tab ${activeTab === 'collect' ? 'active' : ''}`}
         onClick={() => onSelectTab('collect')}
       >
-        Dataset Collection
+        <span aria-hidden="true">🎯</span>
+        <span>Dataset</span>
       </button>
     </nav>
   );

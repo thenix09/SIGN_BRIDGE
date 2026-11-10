@@ -37,8 +37,12 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         {children(currentTab)}
       </main>
       <footer className="app-footer">
-        <span>SignBridge Accessibility Project • Team of 3</span>
-        <span>Person C (Frontend & Docs)</span>
+        <div className="footer-content">
+          <p className="footer-description">
+            <strong>SignBridge</strong> is a bidirectional assistive communication system bridging American Sign Language (ASL) and spoken text through real-time MediaPipe vision tracking, fingerspelling recognition, and animated sign synthesis.
+          </p>
+          <span className="footer-tagline">AI-Powered Accessibility Platform</span>
+        </div>
       </footer>
     </div>
   );

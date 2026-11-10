@@ -107,6 +107,16 @@ export const CameraFeed: React.FC<CameraFeedProps> = ({
         onPoseDetected={onPoseDetected}
       />
 
+      {/* Viewfinder Corner Accents */}
+      {status === 'active' && (
+        <>
+          <div className="viewfinder-corner viewfinder-top-left" aria-hidden="true" />
+          <div className="viewfinder-corner viewfinder-top-right" aria-hidden="true" />
+          <div className="viewfinder-corner viewfinder-bottom-left" aria-hidden="true" />
+          <div className="viewfinder-corner viewfinder-bottom-right" aria-hidden="true" />
+        </>
+      )}
+
       {/* Live Badge overlay (top-left) */}
       {status === 'active' && (
         <div className="camera-live-badge">
