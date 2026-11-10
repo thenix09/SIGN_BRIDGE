@@ -20,17 +20,22 @@ interface SpellPanelProps {
 }
 
 const MOCK_LETTERS = ['H', 'E', 'L', 'L', 'O', 'W', 'O', 'R', 'L', 'D'];
-const DETECTING_DURATION_MS = 1500;
-const STABILISING_DURATION_MS = 1000;
+const DETECTING_DURATION_MS = 600;
+const STABILISING_DURATION_MS = 400;
 
 export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraActive }) => {
   // Mode selection: Live Backend Model by default
   const [spellMode, setSpellMode] = useState<SpellMode>('live');
 
+  // Responsiveness settings: 60ms = snappy real-time, 100ms = balanced, 200ms = relaxed
+  const [responseSpeed, setResponseSpeed] = useState<number>(60);
+  const [requiredStreak, setRequiredStreak] = useState<number>(4);
+
   // Recognition state
   const [currentLetter, setCurrentLetter] = useState<string | null>(null);
   const [confidence, setConfidence] = useState<number>(0);
   const [recognitionState, setRecognitionState] = useState<RecognitionState>('DETECTING');
+  const [streakCount, setStreakCount] = useState<number>(0);
 
   // Live recognition telemetry / error
   const [liveError, setLiveError] = useState<string | null>(null);
@@ -42,6 +47,13 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
 
   // Suggestions
   const [suggestions, setSuggestions] = useState<WordSuggestion[]>([]);
+
+  // Streak tracking ref across frames
+  const streakRef = useRef<{ letter: string; count: number; confirmed: boolean }>({
+    letter: '',
+    count: 0,
+    confirmed: false,
+  });
 
   // Mock cycle state
   const mockIndexRef = useRef(0);
@@ -61,6 +73,11 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
       .catch(() => {});
   }, []);
 
+  const confirmLetter = useCallback((letter: string) => {
+    if (!letter) return;
+    setWordBuffer((prev) => [...prev, letter]);
+  }, []);
+
   // -------------------------------------------------------------
   // MOCK SIMULATION CYCLE
   // -------------------------------------------------------------
@@ -71,10 +88,6 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
     }
   };
 
-  const confirmLetter = useCallback((letter: string) => {
-    setWordBuffer((prev) => [...prev, letter]);
-  }, []);
-
   const runMockCycle = useCallback(() => {
     if (!isActive || spellMode !== 'mock') return;
 
@@ -82,25 +95,28 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
     setCurrentLetter(letter);
     setConfidence(0.6 + Math.random() * 0.3);
     setRecognitionState('DETECTING');
+    setStreakCount(1);
 
     cycleTimerRef.current = setTimeout(() => {
       if (!isActive || spellMode !== 'mock') return;
       setRecognitionState('STABILISING');
-      setConfidence(0.8 + Math.random() * 0.18);
+      setConfidence(0.85 + Math.random() * 0.12);
+      setStreakCount(3);
 
       cycleTimerRef.current = setTimeout(() => {
         if (!isActive || spellMode !== 'mock') return;
         setRecognitionState('CONFIRMED');
-        setConfidence(0.92 + Math.random() * 0.07);
+        setConfidence(0.95 + Math.random() * 0.04);
+        setStreakCount(requiredStreak);
         confirmLetter(letter);
         mockIndexRef.current += 1;
 
         cycleTimerRef.current = setTimeout(() => {
           runMockCycle();
-        }, 800);
+        }, 500);
       }, STABILISING_DURATION_MS);
     }, DETECTING_DURATION_MS);
-  }, [isActive, spellMode, confirmLetter]);
+  }, [isActive, spellMode, confirmLetter, requiredStreak]);
 
   // Handle mock mode lifecycle
   useEffect(() => {
@@ -113,6 +129,7 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
         setCurrentLetter(null);
         setConfidence(0);
         setRecognitionState('DETECTING');
+        setStreakCount(0);
       }
     }
 
@@ -127,9 +144,9 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
   const runLiveRecognition = useCallback(async () => {
     if (!isActive || spellMode !== 'live' || isCallingLive) return;
 
-    // Rate limit to once every 250ms
+    // Responsive user-configurable throttle (default 60ms = ~16 fps)
     const now = Date.now();
-    if (now - lastLiveCallRef.current < 250) return;
+    if (now - lastLiveCallRef.current < responseSpeed) return;
     lastLiveCallRef.current = now;
 
     const hand = detectedHands[0];
@@ -142,17 +159,47 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
         session_id: 'spell-live-session',
         language: 'ASL',
         handedness: hand.handedness,
-        landmarks
+        landmarks,
       });
 
       setLiveError(null);
-      setCurrentLetter(res.label || null);
+      const recognized = res.label || null;
+      setCurrentLetter(recognized);
       setConfidence(res.confidence);
-      setRecognitionState(res.state as RecognitionState);
 
-      if (res.confirmed_letter) {
-        setWordBuffer((prev) => [...prev, res.confirmed_letter!]);
+      // Fast-streak tracking to confirm without holding hands too long
+      if (recognized && res.confidence >= 0.55) {
+        if (streakRef.current.letter === recognized) {
+          streakRef.current.count += 1;
+        } else {
+          streakRef.current = { letter: recognized, count: 1, confirmed: false };
+        }
+
+        const count = streakRef.current.count;
+        setStreakCount(count);
+
+        if (count >= requiredStreak && !streakRef.current.confirmed) {
+          streakRef.current.confirmed = true;
+          setRecognitionState('CONFIRMED');
+          confirmLetter(recognized);
+        } else if (count >= 2) {
+          setRecognitionState('STABILISING');
+        } else {
+          setRecognitionState('DETECTING');
+        }
+      } else {
+        streakRef.current = { letter: '', count: 0, confirmed: false };
+        setStreakCount(0);
+        setRecognitionState('IDLE');
       }
+
+      // Backend confirmed letter hook fallback
+      if (res.confirmed_letter && !streakRef.current.confirmed) {
+        confirmLetter(res.confirmed_letter);
+        streakRef.current.confirmed = true;
+        setRecognitionState('CONFIRMED');
+      }
+
       if (res.sentence) {
         setSentence(res.sentence);
       }
@@ -166,7 +213,18 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
     } finally {
       setIsCallingLive(false);
     }
-  }, [isActive, spellMode, isCallingLive, detectedHands]);
+  }, [isActive, spellMode, isCallingLive, detectedHands, responseSpeed, requiredStreak, confirmLetter]);
+
+  // Reset streak when hands disappear
+  useEffect(() => {
+    if (!isActive) {
+      streakRef.current = { letter: '', count: 0, confirmed: false };
+      setStreakCount(0);
+      setCurrentLetter(null);
+      setConfidence(0);
+      setRecognitionState('IDLE');
+    }
+  }, [isActive]);
 
   // Trigger live recognition when hand landmarks change
   useEffect(() => {
@@ -185,20 +243,27 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
     const word = wordBuffer.join('');
     setSentence((prev) => (prev ? prev + ' ' + word : word));
     setWordBuffer([]);
+    streakRef.current = { letter: '', count: 0, confirmed: false };
+    setStreakCount(0);
   };
 
   const handleClear = () => {
     setWordBuffer([]);
     setSentence('');
+    streakRef.current = { letter: '', count: 0, confirmed: false };
+    setStreakCount(0);
     mockIndexRef.current = 0;
   };
 
   const handleSuggestionClick = (word: string) => {
     setSentence((prev) => (prev ? prev + ' ' + word.toUpperCase() : word.toUpperCase()));
     setWordBuffer([]);
+    streakRef.current = { letter: '', count: 0, confirmed: false };
+    setStreakCount(0);
   };
 
   const confidencePct = Math.round(confidence * 100);
+  const streakPct = Math.min(100, Math.round((streakCount / requiredStreak) * 100));
 
   return (
     <div className="spell-panel">
@@ -216,6 +281,8 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
             setSpellMode('live');
             setCurrentLetter(null);
             setConfidence(0);
+            streakRef.current = { letter: '', count: 0, confirmed: false };
+            setStreakCount(0);
           }}
         >
           ⚡ Live Backend Model
@@ -229,6 +296,49 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
         >
           🎭 Simulated Demo (Mock)
         </button>
+      </div>
+
+      {/* Speed Preset Toolbar */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          margin: '8px 0 12px',
+          padding: '6px 10px',
+          borderRadius: '8px',
+          background: 'rgba(255, 255, 255, 0.03)',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+        }}
+      >
+        <span style={{ fontSize: '0.78rem', color: '#94a3b8', fontWeight: 600 }}>Hold Time:</span>
+        <div style={{ display: 'flex', gap: '4px' }}>
+          {[
+            { label: '⚡ Snappy (0.25s)', speed: 60, frames: 3 },
+            { label: '🏎 Fast (0.4s)', speed: 80, frames: 5 },
+            { label: '🛡 Stable (0.8s)', speed: 120, frames: 7 },
+          ].map((mode) => (
+            <button
+              key={mode.speed}
+              onClick={() => {
+                setResponseSpeed(mode.speed);
+                setRequiredStreak(mode.frames);
+              }}
+              style={{
+                background: responseSpeed === mode.speed ? '#0284c7' : 'rgba(255, 255, 255, 0.05)',
+                border: `1px solid ${responseSpeed === mode.speed ? '#38bdf8' : 'rgba(255, 255, 255, 0.1)'}`,
+                color: responseSpeed === mode.speed ? '#ffffff' : '#94a3b8',
+                borderRadius: '6px',
+                padding: '3px 8px',
+                fontSize: '0.74rem',
+                cursor: 'pointer',
+                fontWeight: responseSpeed === mode.speed ? 700 : 400,
+              }}
+            >
+              {mode.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Mock data warning banner */}
@@ -247,16 +357,44 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
 
       {spellMode === 'live' && !liveError && (
         <div className="spell-live-active-banner">
-          ✓ Connected to <code>POST /api/recognize</code> using real MediaPipe landmarks &amp; Person B's ASL model.
+          ✓ Real-time inference at <strong>{Math.round(1000 / responseSpeed)} fps</strong> with Person B's ASL model.
         </div>
       )}
 
-      {/* Current letter + confidence */}
+      {/* Current letter + confidence + Instant Add Button */}
       <div className="spell-letter-display">
         <span className="spell-big-letter" aria-live="polite">
           {currentLetter ?? '—'}
         </span>
 
+        {/* Instant Add Button — No waiting necessary if hand hurts */}
+        {currentLetter && (
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: '6px' }}>
+            <button
+              onClick={() => {
+                confirmLetter(currentLetter);
+                streakRef.current.confirmed = true;
+              }}
+              style={{
+                background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+                border: '1px solid rgba(56, 189, 248, 0.5)',
+                color: '#ffffff',
+                borderRadius: '8px',
+                padding: '6px 16px',
+                fontSize: '0.9rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(2, 132, 199, 0.35)',
+                transition: 'transform 0.1s ease',
+              }}
+              title={`Instantly add letter "${currentLetter}" without holding`}
+            >
+              + Add "{currentLetter}" Now
+            </button>
+          </div>
+        )}
+
+        {/* Real-time confidence bar */}
         <div className="spell-confidence">
           <div className="spell-confidence-track">
             <div
@@ -268,6 +406,43 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
             {isActive ? `${confidencePct}% confidence` : 'Waiting for camera & hand…'}
           </span>
         </div>
+
+        {/* Live Stability / Confirmation Meter */}
+        {isActive && currentLetter && (
+          <div style={{ width: '100%', marginTop: '8px' }}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                fontSize: '0.72rem',
+                color: '#94a3b8',
+                marginBottom: '3px',
+              }}
+            >
+              <span>Auto-Confirm:</span>
+              <span style={{ color: streakCount >= requiredStreak ? '#34d399' : '#38bdf8', fontWeight: 600 }}>
+                {streakCount >= requiredStreak ? 'CONFIRMED ✓' : `${streakCount}/${requiredStreak} frames`}
+              </span>
+            </div>
+            <div
+              style={{
+                height: '5px',
+                background: 'rgba(255, 255, 255, 0.08)',
+                borderRadius: '3px',
+                overflow: 'hidden',
+              }}
+            >
+              <div
+                style={{
+                  height: '100%',
+                  width: `${streakPct}%`,
+                  background: streakCount >= requiredStreak ? '#34d399' : '#38bdf8',
+                  transition: 'width 60ms linear',
+                }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Recognition state pill */}
