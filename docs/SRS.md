@@ -1,10 +1,10 @@
 # SignBridge — Software Requirements Specification (SRS)
 
-**Document Version:** 1.0.0-draft  
-**Date:** November 9, 2026  
-**Author:** Person C (Frontend, Testing & Documentation)  
-**Project:** SignBridge — American Sign Language (ASL) Recognition & Translation System  
-**Timeline:** 7-Day Intensive Build Plan (November 7–14, 2026)  
+**Document Version:** 1.0.0-draft
+**Date:** November 9, 2026
+**Author:** Person C (Frontend, Testing & Documentation)
+**Project:** SignBridge — American Sign Language (ASL) Recognition & Translation System
+**Timeline:** 7-Day Intensive Build Plan (November 7–14, 2026)
 
 ---
 

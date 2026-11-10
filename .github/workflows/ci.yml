@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: ["main", "person-a-backend", "person-b-ml", "person-c-frontend"]
+    branches: ["main", "person-a-backend", "person-b-ml", "person-c-frontend", "feature/person-b-word-model"]
   pull_request:
     branches: ["main"]
 

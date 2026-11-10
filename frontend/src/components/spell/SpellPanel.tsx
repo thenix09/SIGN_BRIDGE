@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { DetectedHandData } from '../../types/landmarks';
 import { apiClient } from '../../services/api.client';
+import { getClientSessionId } from '../../services/session.service';
 import { RecognizeResponse } from '../../types/api';
 
 /** Recognition state machine stages, mirroring backend RecognizeResponse.state */
@@ -22,6 +23,35 @@ interface SpellPanelProps {
 const MOCK_LETTERS = ['H', 'E', 'L', 'L', 'O', 'W', 'O', 'R', 'L', 'D'];
 const DETECTING_DURATION_MS = 600;
 const STABILISING_DURATION_MS = 400;
+const SPELL_SESSION_ID = getClientSessionId('spell');
+
+interface SpellDraft {
+  wordBuffer: string[];
+  sentence: string;
+}
+
+const readSpellDraft = (): SpellDraft => {
+  try {
+    const stored = sessionStorage.getItem(`${SPELL_SESSION_ID}:draft`);
+    if (stored) {
+      const parsed: unknown = JSON.parse(stored);
+      if (
+        typeof parsed === 'object' &&
+        parsed !== null &&
+        'wordBuffer' in parsed &&
+        'sentence' in parsed &&
+        Array.isArray(parsed.wordBuffer) &&
+        parsed.wordBuffer.every((letter) => typeof letter === 'string') &&
+        typeof parsed.sentence === 'string'
+      ) {
+        return { wordBuffer: parsed.wordBuffer, sentence: parsed.sentence };
+      }
+    }
+  } catch (error) {
+    console.warn('Unable to restore the spelling draft from session storage:', error);
+  }
+  return { wordBuffer: [], sentence: '' };
+};
 
 export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraActive }) => {
   // Mode selection: Live Backend Model by default
@@ -40,10 +70,14 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
   // Live recognition telemetry / error
   const [liveError, setLiveError] = useState<string | null>(null);
   const [isCallingLive, setIsCallingLive] = useState<boolean>(false);
+  const [isSessionActionPending, setIsSessionActionPending] = useState<boolean>(false);
+  const sessionActionPendingRef = useRef(false);
 
   // Word accumulation
-  const [wordBuffer, setWordBuffer] = useState<string[]>([]);
-  const [sentence, setSentence] = useState<string>('');
+  const initialDraftRef = useRef<SpellDraft | null>(null);
+  if (initialDraftRef.current === null) initialDraftRef.current = readSpellDraft();
+  const [wordBuffer, setWordBuffer] = useState<string[]>(initialDraftRef.current.wordBuffer);
+  const [sentence, setSentence] = useState<string>(initialDraftRef.current.sentence);
 
   // Suggestions
   const [suggestions, setSuggestions] = useState<WordSuggestion[]>([]);
@@ -60,6 +94,17 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
   const cycleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isActive = cameraActive && detectedHands.length > 0;
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        `${SPELL_SESSION_ID}:draft`,
+        JSON.stringify({ wordBuffer, sentence }),
+      );
+    } catch (error) {
+      console.warn('Unable to persist the spelling draft in session storage:', error);
+    }
+  }, [wordBuffer, sentence]);
 
   // Load vocabulary suggestions on mount
   useEffect(() => {
@@ -142,7 +187,7 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
   const lastLiveCallRef = useRef<number>(0);
 
   const runLiveRecognition = useCallback(async () => {
-    if (!isActive || spellMode !== 'live' || isCallingLive) return;
+    if (!isActive || spellMode !== 'live' || isCallingLive || sessionActionPendingRef.current) return;
 
     // Responsive user-configurable throttle (default 60ms = ~16 fps)
     const now = Date.now();
@@ -156,7 +201,7 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
 
     try {
       const res: RecognizeResponse = await apiClient.recognizeLetter({
-        session_id: 'spell-live-session',
+        session_id: SPELL_SESSION_ID,
         language: 'ASL',
         handedness: hand.handedness,
         landmarks,
@@ -200,9 +245,7 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
         setRecognitionState('CONFIRMED');
       }
 
-      if (res.sentence) {
-        setSentence(res.sentence);
-      }
+      setSentence(res.sentence);
       if (res.suggestions && res.suggestions.length > 0) {
         setSuggestions(res.suggestions.map((w) => ({ word: w })));
       }
@@ -234,20 +277,71 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
   }, [spellMode, isActive, detectedHands, runLiveRecognition]);
 
   // Controls
-  const handleBackspace = () => {
-    setWordBuffer((prev) => prev.slice(0, -1));
+  const applySessionResponse = (response: RecognizeResponse) => {
+    setWordBuffer(response.current_word.split(''));
+    setSentence(response.sentence);
   };
 
-  const handleCommitWord = () => {
+  const handleSessionAction = async (
+    action: () => Promise<RecognizeResponse>,
+  ): Promise<RecognizeResponse | null> => {
+    if (isCallingLive || sessionActionPendingRef.current) return null;
+    sessionActionPendingRef.current = true;
+    setIsSessionActionPending(true);
+    try {
+      const response = await action();
+      applySessionResponse(response);
+      setLiveError(null);
+      return response;
+    } catch (err: unknown) {
+      setLiveError((err as Error).message || 'Session update failed');
+      return null;
+    } finally {
+      sessionActionPendingRef.current = false;
+      setIsSessionActionPending(false);
+    }
+  };
+
+  const handleBackspace = async () => {
+    if (spellMode === 'mock') {
+      setWordBuffer((prev) => prev.slice(0, -1));
+      return;
+    }
+    await handleSessionAction(() => apiClient.backspaceSession(SPELL_SESSION_ID));
+  };
+
+  const handleCommitWord = async () => {
     if (wordBuffer.length === 0) return;
     const word = wordBuffer.join('');
-    setSentence((prev) => (prev ? prev + ' ' + word : word));
-    setWordBuffer([]);
+    if (spellMode === 'live') {
+      const response = await handleSessionAction(() =>
+        apiClient.commitSession(SPELL_SESSION_ID, word),
+      );
+      if (!response) return;
+    } else {
+      setSentence((prev) => (prev ? prev + ' ' + word : word));
+      setWordBuffer([]);
+    }
     streakRef.current = { letter: '', count: 0, confirmed: false };
     setStreakCount(0);
   };
 
-  const handleClear = () => {
+  const handleClear = async () => {
+    if (spellMode === 'live') {
+      if (isCallingLive || sessionActionPendingRef.current) return;
+      sessionActionPendingRef.current = true;
+      setIsSessionActionPending(true);
+      try {
+        await apiClient.resetSession(SPELL_SESSION_ID);
+        setLiveError(null);
+      } catch (err: unknown) {
+        setLiveError((err as Error).message || 'Session reset failed');
+        return;
+      } finally {
+        sessionActionPendingRef.current = false;
+        setIsSessionActionPending(false);
+      }
+    }
     setWordBuffer([]);
     setSentence('');
     streakRef.current = { letter: '', count: 0, confirmed: false };
@@ -255,9 +349,16 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
     mockIndexRef.current = 0;
   };
 
-  const handleSuggestionClick = (word: string) => {
-    setSentence((prev) => (prev ? prev + ' ' + word.toUpperCase() : word.toUpperCase()));
-    setWordBuffer([]);
+  const handleSuggestionClick = async (word: string) => {
+    if (spellMode === 'live') {
+      const response = await handleSessionAction(() =>
+        apiClient.commitSession(SPELL_SESSION_ID, word.toUpperCase()),
+      );
+      if (!response) return;
+    } else {
+      setSentence((prev) => (prev ? prev + ' ' + word.toUpperCase() : word.toUpperCase()));
+      setWordBuffer([]);
+    }
     streakRef.current = { letter: '', count: 0, confirmed: false };
     setStreakCount(0);
   };
@@ -473,7 +574,7 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
           <button
             className="button spell-btn-sm"
             onClick={handleBackspace}
-            disabled={wordBuffer.length === 0}
+            disabled={wordBuffer.length === 0 || isCallingLive || isSessionActionPending}
             aria-label="Delete last letter"
           >
             ⌫ Backspace
@@ -481,7 +582,7 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
           <button
             className="button spell-btn-sm"
             onClick={handleCommitWord}
-            disabled={wordBuffer.length === 0}
+            disabled={wordBuffer.length === 0 || isCallingLive || isSessionActionPending}
             aria-label="Commit word to sentence"
           >
             ↵ Add Word
@@ -489,10 +590,12 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
           <button
             className="button spell-btn-sm spell-btn-clear"
             onClick={handleClear}
+            disabled={isCallingLive || isSessionActionPending}
             aria-label="Clear everything"
           >
             ✕ Clear
           </button>
+          {isSessionActionPending && <span role="status">Saving session…</span>}
         </div>
       </div>
 
@@ -514,6 +617,7 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
                 key={s.word}
                 className="spell-suggestion-chip"
                 onClick={() => handleSuggestionClick(s.word)}
+                disabled={isCallingLive || isSessionActionPending}
                 aria-label={`Use suggestion: ${s.word}`}
               >
                 {s.word}

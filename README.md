@@ -1,6 +1,6 @@
 # SignBridge 🌉🤟
 
-> **Two-Way Real-Time American Sign Language (ASL) Communication Bridge**  
+> **Two-Way Real-Time American Sign Language (ASL) Communication Bridge**
 > Empowering fluid, bidirectional conversations between the Deaf/Hard-of-Hearing community and non-signers using computer vision, machine learning, and skeletal sign synthesis.
 
 [![Python](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](https://www.python.org/)

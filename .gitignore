@@ -70,3 +70,6 @@ frontend/dist/
 # Kaggle account-specific configuration
 notebooks/kernel-metadata.json
 notebooks/alphabet_kaggle/kernel-metadata.json
+
+# TypeScript build cache
+*.tsbuildinfo

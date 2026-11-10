@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { DetectedHandData, DetectedPoseData, UPPER_BODY_POSE_INDICES } from '../../types/landmarks';
 import { apiClient } from '../../services/api.client';
+import { getClientSessionId } from '../../services/session.service';
 import {
   VocabularyWord,
   BackendVocabularyResponse,
   RecognizeWordsResponse
 } from '../../types/api';
+
+const WORDS_SESSION_ID = getClientSessionId('words');
 
 interface WordsPanelProps {
   detectedHands: DetectedHandData[];
@@ -117,6 +120,7 @@ export const WordsPanel: React.FC<WordsPanelProps> = ({
   }, [words, knownWords]);
 
   const masteryPct = words.length > 0 ? Math.round((knownCount / words.length) * 100) : 0;
+  const hasValidPose = Boolean(detectedPose && detectedPose.landmarks.length >= 17);
 
   // Trigger single-frame recognition using real detected pose and hand landmarks
   const handleRecognizeWord = useCallback(async () => {
@@ -125,8 +129,8 @@ export const WordsPanel: React.FC<WordsPanelProps> = ({
       return;
     }
 
-    if (!detectedPose && detectedHands.length === 0) {
-      setRecognitionError('No pose or hand detected in the camera frame.');
+    if (!detectedPose || detectedPose.landmarks.length < 17) {
+      setRecognitionError('A complete pose is required to evaluate a word sign.');
       return;
     }
 
@@ -135,13 +139,10 @@ export const WordsPanel: React.FC<WordsPanelProps> = ({
 
     try {
       // Build 9-pose coordinate array required by sequence.py
-      let posePoints: number[][] | null = null;
-      if (detectedPose && detectedPose.landmarks.length >= 17) {
-        posePoints = UPPER_BODY_POSE_INDICES.map((idx) => {
-          const pt = detectedPose.landmarks[idx];
-          return [pt.x, pt.y];
-        });
-      }
+      const posePoints = UPPER_BODY_POSE_INDICES.map((idx) => {
+        const pt = detectedPose.landmarks[idx];
+        return [pt.x, pt.y];
+      });
 
       // Format up to 2 hands (each 21 points)
       const handArrays: number[][][] = detectedHands.slice(0, 2).map((h) =>
@@ -149,7 +150,7 @@ export const WordsPanel: React.FC<WordsPanelProps> = ({
       );
 
       const response = await apiClient.recognizeWord({
-        session_id: 'words-session-frontend',
+        session_id: WORDS_SESSION_ID,
         language: 'ASL',
         frame: {
           pose: posePoints,
@@ -195,7 +196,7 @@ export const WordsPanel: React.FC<WordsPanelProps> = ({
             <button
               className="button words-eval-btn"
               onClick={handleRecognizeWord}
-              disabled={isRecognizing || !cameraActive}
+              disabled={isRecognizing || !cameraActive || !hasValidPose}
             >
               {isRecognizing ? '⏳ Evaluating Sign…' : '🔍 Evaluate Current Frame'}
             </button>

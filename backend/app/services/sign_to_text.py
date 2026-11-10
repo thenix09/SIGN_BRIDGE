@@ -9,9 +9,10 @@ from backend.app.core.config import get_settings
 from backend.app.core.events import EventBus
 from backend.app.core.exceptions import InvalidLandmarkError
 from backend.app.domain.hand_frame import HandFrame, canonicalise_landmarks
+from backend.app.recognition.base import SignRecognizer
 from backend.app.recognition.factory import RecognizerFactory
 from backend.app.recognition.words import SuggestionEngine
-from backend.app.services.sessions import SessionManager
+from backend.app.services.sessions import Session, SessionManager
 
 
 @dataclass(frozen=True)
@@ -43,6 +44,14 @@ class SignToTextService:
         self.bus = bus
         self._canonical_handedness = self._read_canonical_handedness()
 
+    def _get_recognizer(self, session: Session, language: str) -> SignRecognizer:
+        """Return the recognizer cached for this session and normalized language."""
+        language_key = language.upper()
+        return session.get_recognizer(
+            language_key,
+            lambda: self.factory.create(language),
+        )
+
     def _read_canonical_handedness(self) -> str:
         """Read majority dataset handedness from letters_meta.json, defaulting to 'Right'."""
         meta_path = Path(get_settings().letters_meta_path)
@@ -73,7 +82,24 @@ class SignToTextService:
         Returns:
             RecognitionResult with current frame state and suggestions.
         """
-        session = self.sessions.get(session_id)
+        with self.sessions.locked_session(session_id) as session:
+            return self._process_frame_locked(
+                session_id,
+                session,
+                language,
+                raw_landmarks,
+                handedness,
+            )
+
+    def _process_frame_locked(
+        self,
+        session_id: str,
+        session: Session,
+        language: str,
+        raw_landmarks: Sequence[Sequence[float]] | None,
+        handedness: str,
+    ) -> RecognitionResult:
+        """Process a frame while holding the session processing lock."""
         current_label = ""
         current_confidence = 0.0
 
@@ -90,7 +116,7 @@ class SignToTextService:
             frame = HandFrame.from_raw(canonical)
 
             # Obtain language recognizer strategy
-            recognizer = self.factory.create(language)
+            recognizer = self._get_recognizer(session, language)
             gesture = recognizer.recognize(frame)
 
             if gesture is not None:
@@ -131,44 +157,44 @@ class SignToTextService:
 
     def commit_word(self, session_id: str, word: str | None = None) -> RecognitionResult:
         """Commit the current spelled word (or suggested replacement) to the sentence."""
-        session = self.sessions.get(session_id)
-        committed = session.word_builder.commit_word(word)
+        with self.sessions.locked_session(session_id) as session:
+            committed = session.word_builder.commit_word(word)
 
-        if committed and self.bus is not None:
-            self.bus.publish(
-                "word_committed",
-                {
-                    "session_id": session_id,
-                    "word": committed,
-                    "language": "ASL",
-                },
+            if committed and self.bus is not None:
+                self.bus.publish(
+                    "word_committed",
+                    {
+                        "session_id": session_id,
+                        "word": committed,
+                        "language": "ASL",
+                    },
+                )
+
+            return RecognitionResult(
+                label="",
+                confidence=0.0,
+                state=session.stability_filter.state.value,
+                confirmed_letter=None,
+                current_word=session.word_builder.current_word,
+                sentence=session.word_builder.sentence,
+                suggestions=[],
             )
-
-        return RecognitionResult(
-            label="",
-            confidence=0.0,
-            state=session.stability_filter.state.value,
-            confirmed_letter=None,
-            current_word=session.word_builder.current_word,
-            sentence=session.word_builder.sentence,
-            suggestions=[],
-        )
 
     def backspace(self, session_id: str) -> RecognitionResult:
         """Delete last character from the active word."""
-        session = self.sessions.get(session_id)
-        session.word_builder.backspace()
-        current_word = session.word_builder.current_word
+        with self.sessions.locked_session(session_id) as session:
+            session.word_builder.backspace()
+            current_word = session.word_builder.current_word
 
-        return RecognitionResult(
-            label="",
-            confidence=0.0,
-            state=session.stability_filter.state.value,
-            confirmed_letter=None,
-            current_word=current_word,
-            sentence=session.word_builder.sentence,
-            suggestions=self.suggestions.suggest(current_word, limit=3),
-        )
+            return RecognitionResult(
+                label="",
+                confidence=0.0,
+                state=session.stability_filter.state.value,
+                confirmed_letter=None,
+                current_word=current_word,
+                sentence=session.word_builder.sentence,
+                suggestions=self.suggestions.suggest(current_word, limit=3),
+            )
 
     def reset_session(self, session_id: str) -> None:
         """Reset session stateful filter and words."""

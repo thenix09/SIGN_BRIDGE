@@ -269,6 +269,3 @@ class SampleStatsResponse(BaseModel):
 
     counts: dict[str, int]
     total: int
-
-
-

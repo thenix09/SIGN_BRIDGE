@@ -324,14 +324,14 @@ def train_word_model(
     # Save artifacts in backend/models
     # 1. word_vocab.json
     vocab_file = models_dir / "word_vocab.json"
-    with open(vocab_file, "w", encoding="utf-8") as f:
+    with open(vocab_file, "w", encoding="utf-8") as vocab_file_obj:
         json.dump(
             {
                 "vocabulary": vocabulary,
                 "label_to_id": {w: i for i, w in enumerate(vocabulary)},
                 "id_to_label": {str(i): w for i, w in enumerate(vocabulary)},
             },
-            f,
+            vocab_file_obj,
             indent=2,
         )
     print(f"\nSaved vocabulary mapping to: {vocab_file}")
@@ -360,8 +360,8 @@ def train_word_model(
         "confusion_matrix": cm.tolist(),
         "training_history": history,
     }
-    with open(metrics_file, "w", encoding="utf-8") as f:
-        json.dump(metrics_summary, f, indent=2)
+    with open(metrics_file, "w", encoding="utf-8") as metrics_file_obj:
+        json.dump(metrics_summary, metrics_file_obj, indent=2)
     print(f"Saved evaluation metrics to: {metrics_file}")
     print(f"Saved model weights to: {best_checkpoint_path} ({best_checkpoint_path.stat().st_size / 1e6:.2f} MB)")
 
