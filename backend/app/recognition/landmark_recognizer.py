@@ -97,11 +97,18 @@ class LandmarkRecognizer(SignRecognizer):
 
                 if hasattr(model, "predict_proba"):
                     raw_probs = model.predict_proba(x_input)[0]
+                    raw_max_idx = int(np.argmax(raw_probs))
+                    raw_conf = float(raw_probs[raw_max_idx])
+
                     if self._prob_ema is None or len(self._prob_ema) != len(raw_probs):
                         self._prob_ema = raw_probs
+                    elif raw_conf >= 0.40 and raw_max_idx != int(np.argmax(self._prob_ema)):
+                        # If a new letter is clearly detected (>=40%), snap EMA to new letter immediately
+                        # to prevent the previous letter from lingering or suppressing the transition
+                        self._prob_ema = 0.75 * raw_probs + 0.25 * self._prob_ema
                     else:
-                        # Exponential moving average smoothing (alpha=0.35 stabilizes frame jitter)
-                        self._prob_ema = 0.35 * raw_probs + 0.65 * self._prob_ema
+                        # Otherwise smooth frame jitter with balanced alpha
+                        self._prob_ema = 0.50 * raw_probs + 0.50 * self._prob_ema
 
                     probs = self._prob_ema
                     max_idx = int(np.argmax(probs))
@@ -116,7 +123,14 @@ class LandmarkRecognizer(SignRecognizer):
                     label = str(pred).upper()
                     confidence = 1.0
 
-        if confidence < self.threshold:
+        # Allow recognition of challenging hand shapes (M, N, U, P, etc.) that peak around 42-55%
+        cutoff = min(self.threshold, 0.42)
+        if confidence < cutoff:
             return None
 
         return Gesture(label=label, confidence=round(confidence, 4))
+
+    def reset(self) -> None:
+        """Reset internal probability moving average on hand reset."""
+        with self._state_lock:
+            self._prob_ema = None

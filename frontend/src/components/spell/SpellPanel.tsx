@@ -213,7 +213,7 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
       setConfidence(res.confidence);
 
       // Fast-streak tracking to confirm without holding hands too long
-      if (recognized && res.confidence >= 0.55) {
+      if (recognized && res.confidence >= 0.40) {
         if (streakRef.current.letter === recognized) {
           streakRef.current.count += 1;
         } else {
