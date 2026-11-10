@@ -8,8 +8,9 @@
 [![React](https://img.shields.io/badge/React-19.0-61dafb.svg)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
 [![MediaPipe](https://img.shields.io/badge/MediaPipe-Tasks%20Vision-FF6F00.svg)](https://developers.google.com/mediapipe)
-[![Tests](https://img.shields.io/badge/Pytest-91%20Passed%20(100%25)-brightgreen.svg)]()
-[![Coverage](https://img.shields.io/badge/Coverage-89.65%25-brightgreen.svg)]()
+[![Alphabet Model](https://img.shields.io/badge/Alphabet%20RF-95.07%25%20Accuracy-brightgreen.svg)]()
+[![Word Model](https://img.shields.io/badge/Word%20ONNX-80.44%25%20Top--1-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/Pytest-100%25%20Passed-brightgreen.svg)]()
 [![Code Style](https://img.shields.io/badge/Ruff-Passed-black.svg)](https://docs.astral.sh/ruff/)
 [![Types](https://img.shields.io/badge/Mypy-0%20Issues-blue.svg)](https://mypy-lang.org/)
 
@@ -36,7 +37,7 @@
 
 SignBridge bridges the communication gap between American Sign Language users and non-signers without requiring specialized data gloves or proprietary hardware. Using an ordinary consumer webcam, SignBridge delivers:
 
-1. **Sign to Text (Fingerspelling & Isolated Words)**: MediaPipe hand and upper-body landmark tracking streams skeletal coordinate tensors into a trained Random Forest classifier and temporal gesture segmenter, outputting confirmed letters, words, and full English sentences.
+1. **Sign to Text (Fingerspelling & Isolated Words)**: MediaPipe hand and upper-body landmark tracking streams skeletal coordinate tensors into a trained Random Forest classifier (for fingerspelling) and an ONNX 1D-CNN + BiGRU deep neural network (for continuous word gestures), outputting confirmed letters, words, and full English sentences.
 2. **Text to Sign (Dynamic 3D Skeletal Animation)**: Translates arbitrary English words and phrases into anatomically accurate 21-joint skeletal hand and upper-body animations on an interactive HTML5 canvas, complete with timeline scrubbing, speed modulation, and letter-by-letter fingerspelling fallbacks.
 
 ---
@@ -47,24 +48,29 @@ SignBridge bridges the communication gap between American Sign Language users an
 flowchart TD
     subgraph Client ["Client Browser (React 19 + TypeScript + Vite)"]
         Cam["Webcam Video Feed"] --> MP["MediaPipe Tasks Vision<br/>(Hands & Pose Landmarker)"]
-        MP --> Overlay["Canvas Skeletal Overlay<br/>(21 Hand + 33 Pose Points)"]
-        MP --> UI["Application Viewports<br/>(SpellPanel / WordsPanel / CollectPanel)"]
+        MP --> HUD["Computer-Vision HUD Overlay<br/>(Corner Brackets & Live Badges)"]
+        MP --> UI["Application Viewports<br/>(Fingerspell / Word Signs / Dataset)"]
         TTS_UI["TextToSignPlayer Canvas<br/>(Skeletal Animation Renderer)"]
     end
 
     subgraph Backend ["Backend Platform (FastAPI + Python 3.11)"]
-        API["REST & WebSocket Endpoints<br/>(/api/recognize, /api/text-to-sign, /ws/*)"]
+        API["REST & WebSocket Endpoints<br/>(/api/recognize, /api/words/recognize, /api/text-to-sign)"]
         SM["Session Manager & TTL Cache<br/>(In-Memory Stateful Tracking)"]
-        STAB["Stability & Smoothing Filter<br/>(Streak & Cooldown Logic)"]
-        RF["ASL Random Forest Model<br/>(300 Trees, 63 Landmark Features)"]
+        STAB["Adaptive Stability Filter<br/>(Fast-Snap EMA & Cooldown)"]
+        RF["ASL Random Forest Model<br/>(300 Trees, 63 Hand Features)"]
+        ONNX["Word Gesture ONNX Model<br/>(1D-CNN + BiGRU, 162 Fusion Features)"]
         SE["Suggestion & Vocabulary Engine<br/>(Dictionary Auto-Completion)"]
         DB[(SQLite Storage<br/>signbridge.db)]
     end
 
-    UI -- "POST /api/recognize (60ms stream)" --> API
+    UI -- "POST /api/recognize" --> API
     API --> SM --> STAB --> RF
     RF --> SE --> API
     API --> UI
+    
+    UI -- "POST /api/words/recognize" --> API
+    API --> ONNX --> API
+
     API -- "Audit & Samples" --> DB
 
     TTS_UI -- "POST /api/text-to-sign" --> API
@@ -75,36 +81,44 @@ flowchart TD
 
 ## 🚀 Key Features
 
-### 1. 🔤 Sign to Text (Spell Mode)
+### 1. 🔤 Sign to Text (Fingerspell Mode)
 - **High Accuracy (95.07%)**: Classifies all 26 ASL alphabet characters (A–Z) using 63 MediaPipe 3D hand coordinates.
 - **Ultra-Fast Real-Time Inference**: Throttled at **60ms (~16 fps)** for fluid typing without muscle fatigue.
-- **Stability Smoothing**: Configurable auto-confirm streak (0.25s / 0.4s / 0.8s hold presets) with real-time visual progress meters.
-- **Instant Manual Confirmation**: Click **`+ Add "{letter}" Now`** to immediately append a detected letter without waiting.
+- **Adaptive Sensitivity & Instant Snap**: Specially tuned for subtle hand-shape distinctions (**M vs. N**, **C vs. O**, **P vs. Q**, **U vs. R**); transitions snap instantly without lag from previous letters.
+- **Fast-Confirm Presets**: Configurable hold streak (**0.25s / 0.4s / 0.8s**) with live visual meters so hand strain is minimized.
+- **Live Typewriter Cursor**: Blinking terminal cursor (`|`) inside the word buffer for a tactile, responsive editing experience.
 - **Word & Sentence Buffer**: Word chips, backspace (`⌫`), word commitment (`↵ Add Word`), clear (`✕ Clear`), and instant dictionary auto-suggestions.
 
-### 2. 🎬 Text to Sign (Animation Mode)
-- **High-Fidelity Skeletal Synthesis**: Renders smooth 21-joint skeletal hand animations on an interactive dark canvas.
+### 2. 💬 Word Signs (Words Mode)
+- **Upper-Body + Hand Fusion**: Tracks 33 body pose landmarks alongside 21 hand joints using MediaPipe `pose_landmarker.task`.
+- **Deep Sequence Model (ONNX)**: 1D-CNN + BiGRU architecture classifying isolated gesture temporal windows with **80.44% Top-1 accuracy** (exceeding the 75% gate).
+- **Everyday Vocabulary**: Supports 30 closed-vocabulary words (`hello`, `thank you`, `please`, `water`, `help`, `apple`, etc.).
+
+### 3. 🤖 Text to Sign (Animation Mode)
+- **High-Fidelity Skeletal Synthesis**: Renders smooth 21-joint skeletal hand animations on an interactive canvas.
 - **Comprehensive Timeline Controls**: Play, pause, restart (⏮), step backwards (◀ Prev), and step forwards (Next ▶).
 - **Variable Playback Speed**: Modulate animation tempo from **0.5x, 1.0x, 1.5x, to 2.0x**.
 - **Lexical & Fingerspelling Fallback**: Known vocabulary words animate full gestures; unrecognized words automatically decompose into fluent letter-by-letter fingerspelled sequences.
 
-### 3. 🌐 Word Signs (Words Mode)
-- **Upper-Body + Hand Fusion**: Tracks shoulder, elbow, and wrist joints alongside hands using `pose_landmarker.task`.
-- **Everyday Vocabulary**: Supports 30 target words (`hello`, `thank you`, `please`, `water`, `help`, `apple`, etc.).
+### 4. 🌓 Theme System (Light & Dark Mode)
+- **Executive Dark Mode**: Deep obsidian-navy palette (`#090D16` / `#111726`) with ambient top glow and crisp hairline borders.
+- **Clean Daylight Mode**: Pure white surfaces (`#FFFFFF`) with soft slate typography (`#0F172A`) and subtle elevation drop shadows.
+- **Persistent Preferences**: Header toggle remembers the user's choice across sessions via `localStorage`.
 
-### 4. 🗄 Translation History Drawer
+### 5. 🎯 Computer-Vision HUD & Design Polish
+- **HUD Corner Accents**: Clean sci-fi viewfinder brackets (`⌜ ⌝ ⌞ ⌟`) framed around the live camera feed.
+- **Modern Segmented Island Tabs**: Tactile tab bar with emoji glyphs (`🔤 Fingerspell`, `💬 Word Signs`, `🤖 Text to Sign`, `🎯 Dataset`).
+- **Brand Identity**: Custom vector ASL hand-bridge logo badge + two-tone typographic brand title.
+
+### 6. 🗄 Translation History Drawer
 - **Persistent Log**: Captures spoken/signed phrases with timestamps and direction (`Sign → Text` or `Text → Sign`).
 - **One-Click Replay**: Re-routes any historical sentence directly into the Text-to-Sign synthesizer for demonstration.
-
-### 5. 🛠 Developer Landmark Inspector & Dataset Tool
-- **Live Landmark Telemetry**: Inspects hand joint detection, handedness confidence (`Left` vs `Right`), and pose points.
-- **Ground-Truth Recording**: Directly records raw landmark tensors to SQLite via `POST /api/samples` to collect custom training data.
 
 ---
 
 ## 👥 Team Roles & Ownership
 
-The SignBridge system was engineered collaboratively across three specialized roles:
+SignBridge was engineered collaboratively across three specialized roles:
 
 ```mermaid
 graph LR
@@ -117,30 +131,38 @@ graph LR
   - Architecture of FastAPI platform, session lifecycle, and stability filtering.
   - Frozen Section 12 REST API and WebSocket streaming routes (`/ws/recognize`, `/ws/recognize-words`).
   - SQLite schema, sample collection endpoints, and history audit repository.
-  - Test harness: 91 unit, integration, and system tests (89.65% coverage), Ruff linting, Mypy typing.
+  - Test harness: 90+ unit, integration, and system tests, Ruff linting, Mypy static typing.
 - **Person B (Machine Learning & Data Pipelines)**:
   - Kaggle ASL dataset preparation, cleaning, and normalization.
-  - Feature extraction pipeline converting 21 3D points $(x, y, z)$ into 63 normalized coordinates.
+  - Feature extraction pipeline converting MediaPipe coordinate tensors into invariant feature vectors.
   - ASL Alphabet Model (`asl_model.joblib`): 300-tree Random Forest, 95.07% accuracy across 26 classes.
-  - 30-word isolated gesture model architecture and vocabulary design (`word_vocab.json`).
+  - Word Gesture Model (`word_model.onnx`): 1D-CNN + BiGRU architecture passing accuracy gates with 80.44% Top-1 accuracy across 30 words.
 - **Person C (Frontend UI/UX & MediaPipe Engine)**:
   - React 19 + TypeScript + Vite component architecture.
   - MediaPipe Vision Tasks integration (`hand_landmarker` and `pose_landmarker.task`).
   - Panel implementations: `SpellPanel`, `WordsPanel`, `CollectPanel`, `HistoryDrawer`, `DeveloperSaveControl`.
-  - Skeletal canvas rendering engine with timeline scrubbing and responsive design system.
+  - Skeletal canvas rendering engine, timeline scrubbing, Light/Dark theme system, and responsive UI polish.
 
 ---
 
 ## 🧠 Machine Learning Models
 
-### ASL Alphabet Model
-- **File**: `backend/models/asl_model.joblib`
-- **Checksum (SHA-256)**: `D1B0600C19505F85F8C4077F0868FC01BA92414A4E737DD1721F60808C7DFC11`
+### 1. ASL Alphabet Model (Fingerspelling)
+- **Artifact**: `backend/models/asl_model.joblib`
+- **Checksum (SHA-256)**: `d1b0600c19505f85f8c4077f0868fc01ba92414a4e737dd1721f60808c7dfc11`
 - **Algorithm**: Random Forest Classifier (300 estimators, Gini criterion)
 - **Input Dimensions**: 63 features (21 MediaPipe hand landmarks $\times [x, y, z]$, wrist-centered & normalized)
 - **Output Classes**: 26 classes (`A` through `Z`)
-- **Evaluation Accuracy**: **95.0745%** on held-out test split
-- **Confusion Matrix & Metrics**: See [`backend/models/confusion_matrix.png`](backend/models/confusion_matrix.png) and [`backend/models/metrics.json`](backend/models/metrics.json).
+- **Evaluation Accuracy**: **95.07%** on held-out test split
+- **Artifacts**: See [`backend/models/metrics.json`](backend/models/metrics.json) and [`docs/ALPHABET_MODEL_CARD.md`](docs/ALPHABET_MODEL_CARD.md).
+
+### 2. Word Gesture Model (Continuous Signs)
+- **Artifact**: `backend/models/word_model.onnx`
+- **Architecture**: 1D-CNN + Bidirectional GRU (BiGRU)
+- **Input Dimensions**: 30 frames $\times$ 162 features (21 Hand points $\times$ 3 + 33 Pose points $\times$ 3)
+- **Output Classes**: 30 closed-vocabulary words
+- **Top-1 Evaluation Accuracy**: **80.44%** (exceeds the 75.00% production gate)
+- **Inference Runtime**: ONNX Runtime CPU/GPU with cross-platform optimization
 
 ---
 
@@ -238,16 +260,20 @@ python -m ruff check .
 # 3. Verify strict static type hints
 python -m mypy backend/app
 
-# 4. Verify frontend TypeScript build
+# 4. Verify word model gate threshold
+python backend/scripts/check_gate.py
+
+# 5. Verify frontend TypeScript build
 cd frontend && npm run build
 ```
 
 ### Current Verification Metrics:
-- **Unit & System Tests**: 91 passed / 91 executed (100% pass rate)
-- **Code Coverage**: 89.65% (exceeds the 80% threshold)
-- **Mypy Static Typing**: 0 issues across 52 source files
+- **Unit & System Tests**: 100% pass rate across all test suites
+- **Code Coverage**: Exceeds the 80% coverage threshold
+- **Mypy Static Typing**: 0 issues across 53 source files
 - **Ruff Linter**: Clean (0 warnings or errors)
-- **Frontend Build**: `tsc -b && vite build` clean in 2.5s
+- **Word Accuracy Gate**: Top-1 80.44% (passed $\ge 75\%$)
+- **Frontend Build**: `tsc -b && vite build` clean in under 2 seconds
 
 ---
 
@@ -264,15 +290,15 @@ SIGN_BRIDGE/
 │   │   ├── repositories/    # SQLite session and translation history repositories
 │   │   ├── services/        # SignToTextService, TextToSignService, SessionManager
 │   │   └── main.py          # FastAPI application factory & lifespan
-│   ├── models/              # ASL joblib model, metadata, vocabularies, metrics
-│   ├── scripts/             # Performance benchmarks & dataset utilities
+│   ├── models/              # ASL Random Forest, ONNX word model, metadata, metrics
+│   ├── scripts/             # Model training, gate verification & dataset utilities
 │   └── tests/               # Unit, integration, and system test suites
 ├── frontend/
 │   ├── public/              # Static assets & MediaPipe task vision models
 │   ├── src/
 │   │   ├── components/      # UI panels (spell, words, tts, collect, camera, layout)
 │   │   ├── services/        # API client, Camera service, MediaPipe service
-│   │   ├── styles/          # CSS design system & dark theme tokens
+│   │   ├── styles/          # Plain CSS design system, dark/light themes & HUD tokens
 │   │   ├── types/           # TypeScript API interfaces & landmark definitions
 │   │   ├── App.tsx          # Master tab controller & view layout
 │   │   └── main.tsx         # React DOM entrypoint
