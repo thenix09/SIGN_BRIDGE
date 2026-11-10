@@ -272,12 +272,16 @@ def download_one(
                 if not is_valid_parquet(staged_target):
                     raise ValueError(f"Downloaded file failed Parquet validation: {staged_target}")
 
-                try:
-                    os.link(staged_target, target)
-                except FileExistsError:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                if target.exists():
                     if is_valid_parquet(target):
                         return "skipped", None
                     return "failed", f"Refusing to overwrite existing invalid file: {target}"
+
+                try:
+                    os.link(staged_target, target)
+                except (OSError, NotImplementedError):
+                    shutil.copyfile(staged_target, target)
                 return "downloaded", None
 
         except Exception as error:
