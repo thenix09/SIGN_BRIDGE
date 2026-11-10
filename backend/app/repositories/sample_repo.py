@@ -18,8 +18,8 @@ class SQLiteSampleRepository(Repository[Sample]):
     def __init__(self, session_factory: sessionmaker | None = None) -> None:
         self._session_factory = session_factory or create_session_factory()
 
-    def add(self, item: Sample) -> Sample:
-        """Persist a new letter Sample to the database."""
+    def add_sample(self, item: Sample) -> tuple[int, Sample]:
+        """Persist a new letter Sample and return assigned primary key id and domain item."""
         features_json = json.dumps(list(item.features))
         with self._session_factory() as session:
             model = SampleModel(
@@ -29,7 +29,13 @@ class SQLiteSampleRepository(Repository[Sample]):
             )
             session.add(model)
             session.commit()
-            return item
+            session.refresh(model)
+            return model.id, item
+
+    def add(self, item: Sample) -> Sample:
+        """Persist a new letter Sample to the database."""
+        _, saved = self.add_sample(item)
+        return saved
 
     def get(self, id_: int) -> Sample | None:
         """Retrieve a Sample by its integer primary key."""
