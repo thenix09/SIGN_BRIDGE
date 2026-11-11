@@ -185,11 +185,11 @@ class ApiClient {
   /**
    * Backspace session character (/api/session/backspace).
    */
-  async backspaceSession(sessionId: string): Promise<RecognizeResponse> {
+  async backspaceSession(sessionId: string, word?: string): Promise<RecognizeResponse> {
     const res = await fetch(`${this.baseUrl}/session/backspace`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ session_id: sessionId }),
+      body: JSON.stringify({ session_id: sessionId, word }),
     });
     if (!res.ok) throw new Error(`Session backspace failed: ${res.statusText}`);
     return res.json();

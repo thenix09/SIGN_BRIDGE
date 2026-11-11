@@ -69,7 +69,9 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
 
   // Live recognition telemetry / error
   const [liveError, setLiveError] = useState<string | null>(null);
-  const [isCallingLive, setIsCallingLive] = useState<boolean>(false);
+  const isCallingLiveRef = useRef<boolean>(false);
+  const detectedHandsRef = useRef(detectedHands);
+  detectedHandsRef.current = detectedHands;
   const [isSessionActionPending, setIsSessionActionPending] = useState<boolean>(false);
   const sessionActionPendingRef = useRef(false);
 
@@ -187,17 +189,19 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
   const lastLiveCallRef = useRef<number>(0);
 
   const runLiveRecognition = useCallback(async () => {
-    if (!isActive || spellMode !== 'live' || isCallingLive || sessionActionPendingRef.current) return;
+    if (!isActive || spellMode !== 'live' || isCallingLiveRef.current || sessionActionPendingRef.current) return;
 
     // Responsive user-configurable throttle (default 60ms = ~16 fps)
     const now = Date.now();
     if (now - lastLiveCallRef.current < responseSpeed) return;
     lastLiveCallRef.current = now;
 
-    const hand = detectedHands[0];
+    const hands = detectedHandsRef.current;
+    if (!hands || hands.length === 0) return;
+    const hand = hands[0];
     const landmarks = hand.landmarks.map((lm) => [lm.x, lm.y, lm.z]);
 
-    setIsCallingLive(true);
+    isCallingLiveRef.current = true;
 
     try {
       const res: RecognizeResponse = await apiClient.recognizeLetter({
@@ -213,7 +217,7 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
       setConfidence(res.confidence);
 
       // Fast-streak tracking to confirm without holding hands too long
-      if (recognized && res.confidence >= 0.40) {
+      if (recognized && res.confidence >= 0.35) {
         if (streakRef.current.letter === recognized) {
           streakRef.current.count += 1;
         } else {
@@ -227,6 +231,10 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
           streakRef.current.confirmed = true;
           setRecognitionState('CONFIRMED');
           confirmLetter(recognized);
+        } else if (streakRef.current.confirmed && count >= requiredStreak + 10) {
+          // Allow natural repeated letters (e.g. "LL") when held steadily
+          confirmLetter(recognized);
+          streakRef.current.count = requiredStreak;
         } else if (count >= 2) {
           setRecognitionState('STABILISING');
         } else {
@@ -254,9 +262,9 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
       setLiveError(errMsg);
       setRecognitionState('IDLE');
     } finally {
-      setIsCallingLive(false);
+      isCallingLiveRef.current = false;
     }
-  }, [isActive, spellMode, isCallingLive, detectedHands, responseSpeed, requiredStreak, confirmLetter]);
+  }, [isActive, spellMode, responseSpeed, requiredStreak, confirmLetter]);
 
   // Reset streak when hands disappear
   useEffect(() => {
@@ -285,7 +293,7 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
   const handleSessionAction = async (
     action: () => Promise<RecognizeResponse>,
   ): Promise<RecognizeResponse | null> => {
-    if (isCallingLive || sessionActionPendingRef.current) return null;
+    if (isCallingLiveRef.current || sessionActionPendingRef.current) return null;
     sessionActionPendingRef.current = true;
     setIsSessionActionPending(true);
     try {
@@ -303,11 +311,51 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
   };
 
   const handleBackspace = async () => {
-    if (spellMode === 'mock') {
-      setWordBuffer((prev) => prev.slice(0, -1));
+    // 1. If there are letters in the active wordBuffer, remove ONLY the last letter
+    if (wordBuffer.length > 0) {
+      const remaining = wordBuffer.slice(0, -1);
+      setWordBuffer(remaining);
+      streakRef.current = { letter: '', count: 0, confirmed: false };
+      setStreakCount(0);
+
+      if (spellMode === 'live') {
+        try {
+          const res = await apiClient.backspaceSession(SPELL_SESSION_ID, wordBuffer.join(''));
+          if (res.suggestions && res.suggestions.length > 0) {
+            setSuggestions(res.suggestions.map((w) => ({ word: w })));
+          }
+        } catch {
+          // ignore background sync error
+        }
+      }
       return;
     }
-    await handleSessionAction(() => apiClient.backspaceSession(SPELL_SESSION_ID));
+
+    // 2. If wordBuffer is already empty, reopen the last word from sentence for editing
+    if (sentence.trim().length > 0) {
+      if (spellMode === 'live') {
+        try {
+          const res = await apiClient.backspaceSession(SPELL_SESSION_ID);
+          setWordBuffer(res.current_word ? res.current_word.split('') : []);
+          setSentence(res.sentence);
+          if (res.suggestions && res.suggestions.length > 0) {
+            setSuggestions(res.suggestions.map((w) => ({ word: w })));
+          }
+        } catch {
+          const words = sentence.trim().split(/\s+/);
+          const lastWord = words.pop() || '';
+          setWordBuffer(lastWord.split(''));
+          setSentence(words.join(' '));
+        }
+      } else {
+        const words = sentence.trim().split(/\s+/);
+        const lastWord = words.pop() || '';
+        setWordBuffer(lastWord.split(''));
+        setSentence(words.join(' '));
+      }
+      streakRef.current = { letter: '', count: 0, confirmed: false };
+      setStreakCount(0);
+    }
   };
 
   const handleCommitWord = async () => {
@@ -328,7 +376,7 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
 
   const handleClear = async () => {
     if (spellMode === 'live') {
-      if (isCallingLive || sessionActionPendingRef.current) return;
+      if (isCallingLiveRef.current || sessionActionPendingRef.current) return;
       sessionActionPendingRef.current = true;
       setIsSessionActionPending(true);
       try {
@@ -348,6 +396,27 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
     setStreakCount(0);
     mockIndexRef.current = 0;
   };
+
+  // Global keyboard listener for Backspace key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        (e.target as HTMLElement)?.isContentEditable
+      ) {
+        return;
+      }
+
+      if (e.key === 'Backspace') {
+        e.preventDefault();
+        handleBackspace();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [wordBuffer, sentence, spellMode]);
 
   const handleSuggestionClick = async (word: string) => {
     if (spellMode === 'live') {
@@ -580,15 +649,16 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
           <button
             className="button spell-btn-sm"
             onClick={handleBackspace}
-            disabled={wordBuffer.length === 0 || isCallingLive || isSessionActionPending}
+            disabled={wordBuffer.length === 0 && sentence.trim().length === 0}
             aria-label="Delete last letter"
+            title="Delete last letter (Backspace key)"
           >
             ⌫ Backspace
           </button>
           <button
             className="button spell-btn-sm"
             onClick={handleCommitWord}
-            disabled={wordBuffer.length === 0 || isCallingLive || isSessionActionPending}
+            disabled={wordBuffer.length === 0 || isSessionActionPending}
             aria-label="Commit word to sentence"
           >
             ↵ Add Word
@@ -596,7 +666,7 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
           <button
             className="button spell-btn-sm spell-btn-clear"
             onClick={handleClear}
-            disabled={isCallingLive || isSessionActionPending}
+            disabled={isSessionActionPending}
             aria-label="Clear everything"
           >
             ✕ Clear
@@ -623,7 +693,7 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
                 key={s.word}
                 className="spell-suggestion-chip"
                 onClick={() => handleSuggestionClick(s.word)}
-                disabled={isCallingLive || isSessionActionPending}
+                disabled={isSessionActionPending}
                 aria-label={`Use suggestion: ${s.word}`}
               >
                 {s.word}

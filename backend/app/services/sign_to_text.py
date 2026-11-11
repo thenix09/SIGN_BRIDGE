@@ -184,9 +184,11 @@ class SignToTextService:
                 suggestions=[],
             )
 
-    def backspace(self, session_id: str) -> RecognitionResult:
+    def backspace(self, session_id: str, word: str | None = None) -> RecognitionResult:
         """Delete last character from the active word."""
         with self.sessions.locked_session(session_id) as session:
+            if word is not None:
+                session.word_builder._current_word = list(word.strip().upper())
             session.word_builder.backspace()
             current_word = session.word_builder.current_word
 

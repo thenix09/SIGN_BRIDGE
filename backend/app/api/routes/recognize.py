@@ -58,7 +58,7 @@ async def session_backspace(
     service: SignToTextService = Depends(get_sign_to_text_service),
 ) -> RecognizeResponse:
     """Delete last character from current word or reopen last committed word."""
-    res = service.backspace(request.session_id)
+    res = service.backspace(request.session_id, request.word)
     return RecognizeResponse(
         label=res.label,
         confidence=res.confidence,

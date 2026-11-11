@@ -102,7 +102,7 @@ class LandmarkRecognizer(SignRecognizer):
 
                     if self._prob_ema is None or len(self._prob_ema) != len(raw_probs):
                         self._prob_ema = raw_probs
-                    elif raw_conf >= 0.40 and raw_max_idx != int(np.argmax(self._prob_ema)):
+                    elif raw_conf >= 0.35 and raw_max_idx != int(np.argmax(self._prob_ema)):
                         # If a new letter is clearly detected (>=40%), snap EMA to new letter immediately
                         # to prevent the previous letter from lingering or suppressing the transition
                         self._prob_ema = 0.75 * raw_probs + 0.25 * self._prob_ema
@@ -124,7 +124,7 @@ class LandmarkRecognizer(SignRecognizer):
                     confidence = 1.0
 
         # Allow recognition of challenging hand shapes (M, N, U, P, etc.) that peak around 42-55%
-        cutoff = min(self.threshold, 0.42)
+        cutoff = min(self.threshold, 0.35)
         if confidence < cutoff:
             return None
 
