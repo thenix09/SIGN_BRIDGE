@@ -62,7 +62,7 @@ desktop.ini
 
 # Alphabet dataset and model artifacts
 backend/data/alphabet_export/
-backend/models/asl_model.joblib
+
 node_modules/
 frontend/node_modules/
 frontend/dist/
