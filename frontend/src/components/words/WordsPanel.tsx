@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { DetectedHandData, DetectedPoseData, UPPER_BODY_POSE_INDICES } from '../../types/landmarks';
+import { generalGestureService } from '../../services/generalGesture.service';
 import { apiClient } from '../../services/api.client';
 import { getClientSessionId } from '../../services/session.service';
 import {
@@ -122,6 +123,8 @@ export const WordsPanel: React.FC<WordsPanelProps> = ({
   const masteryPct = words.length > 0 ? Math.round((knownCount / words.length) * 100) : 0;
   const hasValidPose = Boolean(detectedPose && detectedPose.landmarks.length >= 17);
 
+
+
   // Trigger single-frame recognition using real detected pose and hand landmarks
   const handleRecognizeWord = useCallback(async () => {
     if (!cameraActive) {
@@ -138,6 +141,33 @@ export const WordsPanel: React.FC<WordsPanelProps> = ({
     setRecognitionError(null);
 
     try {
+      // 1. First check natural gesture heuristics for instant match
+      const localGesture = generalGestureService.evaluate(detectedHands, detectedPose);
+      if (localGesture) {
+        const normWord = localGesture.word.toLowerCase().replace(/\s+/g, '');
+        setRecognitionResult({
+          state: 'COMPLETE',
+          top_k: [{ label: normWord, confidence: localGesture.confidence }],
+          accepted_word: normWord,
+          sentence: localGesture.word,
+          message: localGesture.description
+        });
+
+        // Mark as known
+        setKnownWords((prev) => {
+          if (prev.has(normWord)) return prev;
+          const next = new Set(prev);
+          next.add(normWord);
+          try {
+            localStorage.setItem('signbridge_known_words', JSON.stringify(Array.from(next)));
+          } catch {}
+          return next;
+        });
+
+        setIsRecognizing(false);
+        return;
+      }
+
       // Build 9-pose coordinate array required by sequence.py
       const posePoints = UPPER_BODY_POSE_INDICES.map((idx) => {
         const pt = detectedPose.landmarks[idx];

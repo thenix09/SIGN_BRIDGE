@@ -73,7 +73,7 @@ export const DeveloperSaveControl: React.FC<DeveloperSaveControlProps> = ({
         onClick={() => setIsOpen((prev) => !prev)}
         aria-expanded={isOpen}
       >
-        <span>🛠️ Developer Landmark Tool</span>
+        <span>Developer Landmark Tool</span>
         <span className="dev-toggle-arrow">{isOpen ? '▲' : '▼'}</span>
       </button>
 
@@ -115,7 +115,7 @@ export const DeveloperSaveControl: React.FC<DeveloperSaveControlProps> = ({
               onClick={handleSave}
               disabled={!canSave}
             >
-              {isSaving ? '⏳ Saving…' : '💾 Save Landmarks'}
+              {isSaving ? 'Saving…' : 'Save Landmarks'}
             </button>
           </div>
 

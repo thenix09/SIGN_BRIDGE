@@ -95,24 +95,17 @@ def get_vocabulary(
         except Exception:
             words = []
 
-    # Check whether the word model is available and operational
-    model_path = Path(settings.word_model_path)
+    # Word model and sequence gesture recognizer status
+    status: Any = "available"
     gate_path = Path(settings.word_gate_path)
-
-    # Status is 'available' if model file exists, else 'withheld'
-    if model_path.is_file():
-        # Check gate if present
-        status: Any = "available"
-        if gate_path.is_file():
-            try:
-                with gate_path.open("r", encoding="utf-8") as gf:
-                    gate_data = json.load(gf)
-                if not gate_data.get("passed", True):
-                    status = "withheld"
-            except Exception:
-                pass
-    else:
-        status = "withheld"
+    if gate_path.is_file():
+        try:
+            with gate_path.open("r", encoding="utf-8") as gf:
+                gate_data = json.load(gf)
+            if not gate_data.get("passed", True):
+                status = "withheld"
+        except Exception:
+            pass
 
     return VocabularyResponse(
         size=len(words),

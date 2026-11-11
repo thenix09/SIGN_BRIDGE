@@ -73,3 +73,6 @@ notebooks/alphabet_kaggle/kernel-metadata.json
 
 # TypeScript build cache
 *.tsbuildinfo
+
+.vite/
+frontend/.vite/

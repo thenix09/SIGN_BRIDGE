@@ -386,7 +386,7 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
             setStreakCount(0);
           }}
         >
-          ⚡ Live Backend Model
+          Live Recognition
         </button>
         <button
           className={`spell-mode-toggle-btn ${spellMode === 'mock' ? 'active' : ''}`}
@@ -395,7 +395,7 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
             setLiveError(null);
           }}
         >
-          🎭 Simulated Demo (Mock)
+          Simulated Demo
         </button>
       </div>
 
@@ -415,9 +415,9 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
         <span style={{ fontSize: '0.78rem', color: '#94a3b8', fontWeight: 600 }}>Hold Time:</span>
         <div style={{ display: 'flex', gap: '4px' }}>
           {[
-            { label: '⚡ Snappy (0.25s)', speed: 60, frames: 3 },
-            { label: '🏎 Fast (0.4s)', speed: 80, frames: 5 },
-            { label: '🛡 Stable (0.8s)', speed: 120, frames: 7 },
+            { label: 'Snappy (0.25s)', speed: 60, frames: 3 },
+            { label: 'Fast (0.4s)', speed: 80, frames: 5 },
+            { label: 'Stable (0.8s)', speed: 120, frames: 7 },
           ].map((mode) => (
             <button
               key={mode.speed}
@@ -445,20 +445,20 @@ export const SpellPanel: React.FC<SpellPanelProps> = ({ detectedHands, cameraAct
       {/* Mock data warning banner */}
       {spellMode === 'mock' && (
         <div className="spell-mock-banner" role="alert">
-          ⚠ MOCK — Recognition not yet connected. Data is simulated.
+          Simulation Mode — Synthetic data active for offline testing.
         </div>
       )}
 
       {/* Live backend status / error banner */}
       {spellMode === 'live' && liveError && (
         <div className="spell-live-error-banner" role="alert">
-          <strong>⚠ Live Recognition Notice:</strong> {liveError}
+          <strong>Live Notice:</strong> {liveError}
         </div>
       )}
 
       {spellMode === 'live' && !liveError && (
         <div className="spell-live-active-banner">
-          ✓ Real-time inference at <strong>{Math.round(1000 / responseSpeed)} fps</strong> with Person B's ASL model.
+          Active inference at <strong>{Math.round(1000 / responseSpeed)} fps</strong> with Person B's ASL model.
         </div>
       )}
 
