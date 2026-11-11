@@ -43,7 +43,7 @@ class ApiClient {
   constructor(baseUrl?: string) {
     this.baseUrl =
       baseUrl ||
-      (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL) ||
+      (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL ? String((import.meta as any).env?.VITE_API_URL).trim().replace(/\/+$/, '').replace(/(?<!\/api)$/, '/api') : '') ||
       '/api';
   }
 
